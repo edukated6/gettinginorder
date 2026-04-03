@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#1f7a69" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./app.css" />
+    <title>nORDER</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+
+    <script type="module">
+      import("./app.js?v=20260402b").catch((error) => {
+        const app = document.getElementById("app");
+        if (!app) return;
+        app.innerHTML = `
+          <div style="min-height:100vh;display:grid;place-items:center;padding:20px;font-family:Manrope,sans-serif;">
+            <section style="max-width:520px;width:100%;background:#fff;border:1px solid #d4e3df;border-radius:14px;padding:18px;box-shadow:0 10px 28px rgba(11,45,38,.08);">
+              <h1 style="margin:0 0 8px 0;color:#132521;">nOrder could not load</h1>
+              <p style="margin:0 0 10px 0;color:#4f6661;">The app script failed to start on this browser/device.</p>
+              <p style="margin:0 0 14px 0;color:#4f6661;font-size:14px;word-break:break-word;">${String(error?.message || error)}</p>
+              <button id="reload-app" style="background:#1f7a69;color:#fff;border:0;border-radius:10px;padding:10px 14px;">Reload</button>
+            </section>
+          </div>
+        `;
+        document.getElementById("reload-app")?.addEventListener("click", () => {
+          window.location.reload();
+        });
+      });
+    </script>
+
+    <script nomodule>
+      (function () {
+        var app = document.getElementById("app");
+        if (!app) return;
+        app.innerHTML =
+          '<div style="min-height:100vh;display:grid;place-items:center;padding:20px;font-family:sans-serif;">' +
+          '<section style="max-width:520px;width:100%;background:#fff;border:1px solid #d4e3df;border-radius:14px;padding:18px;">' +
+          '<h1 style="margin:0 0 8px 0;color:#132521;">Browser not supported</h1>' +
+          '<p style="margin:0;color:#4f6661;">This browser does not support JavaScript modules. Please update the browser or open from a modern browser.</p>' +
+          '</section>' +
+          '</div>';
+      })();
+    </script>
+  </body>
+</html>
