@@ -225,7 +225,7 @@ input, select {
   z-index: 5;
   display: flex;
   justify-content: center;
-  padding: 10px;
+  padding: 20px;
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   backdrop-filter: blur(8px);
   border-top: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
