@@ -71,3 +71,6 @@ build_script:
 artifacts:
   - path: output/*.ipa
     name: AppStoreBuild
+
+    - name: Upload app to TestFlight
+  uses: Apple-Actions/upload-testflight-build@v5.0.0
