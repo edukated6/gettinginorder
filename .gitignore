@@ -29,3 +29,7 @@ dist-ssr
 
 .env
 .vite
+
+# Firebase local cache artifacts
+.firebase/
+hosting.*.cache
