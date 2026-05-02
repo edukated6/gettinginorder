@@ -1,0 +1,73 @@
+version: 1.0.{build}
+build:
+  verbosity: minimal
+  image: macOS
+stack: xcode-16 # Use the latest supported version
+
+environment:
+  # Encrypted values from AppVeyor portal
+  P12_PASSWORD:
+    secure: 
+MIIFyTCCBLGgAwIBAgIQblqm57POb6Gc4SQVgIE02zANBgkqhkiG9w0BAQsFADB1
+MUQwQgYDVQQDDDtBcHBsZSBXb3JsZHdpZGUgRGV2ZWxvcGVyIFJlbGF0aW9ucyBD
+ZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTELMAkGA1UECwwCRzMxEzARBgNVBAoMCkFw
+cGxlIEluYy4xCzAJBgNVBAYTAlVTMB4XDTI2MDUwMjE2MDE1NloXDTI3MDUwMjE2
+MDE1NVowgY8xGjAYBgoJkiaJk/IsZAEBDAo2OTI0UTU0WE5VMTcwNQYDVQQDDC5B
+cHBsZSBEaXN0cmlidXRpb246IEFobWFhZCBIYXJ2ZXkgKDY5MjRRNTRYTlUpMRMw
+EQYDVQQLDAo2OTI0UTU0WE5VMRYwFAYDVQQKDA1BaG1hYWQgSGFydmV5MQswCQYD
+VQQGEwJVUzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBANl6WkclL8j0
+fy6nLBUpf/CKJNCpkz06lZxCaUSbBDt9XsdLd+VVELGgmyQcciOtdoYuZmyeKeYy
+/OBWsxw+SHS6jSj+OLkFYhMUr7YM809CK0tg0ubfYe7AW+JabF1SR0OMqYeghaHi
+ceir5vaBKMX6qvo8G5nD6rDSch1gIQ46iPdhmXSfXGEKr63UiHs6n1sf7hEjL8B1
+Ce3372iSaL/9wABDmFwsBWFUmEZrCbalWxZ/NcLiA7Q0D7IAB39/BnIK8iRRzy8R
+nyS0dqMpn7OXGgY5+zZjx3svvno+fdbFgnFkMC8o38XetRYxRCTiT56kDAx7WnuO
+s64oAQdwaxMCAwEAAaOCAjgwggI0MAwGA1UdEwEB/wQCMAAwHwYDVR0jBBgwFoAU
+Cf7AFZD5r2QKkhK5JihjDJfsp7IwcAYIKwYBBQUHAQEEZDBiMC0GCCsGAQUFBzAC
+hiFodHRwOi8vY2VydHMuYXBwbGUuY29tL3d3ZHJnMy5kZXIwMQYIKwYBBQUHMAGG
+JWh0dHA6Ly9vY3NwLmFwcGxlLmNvbS9vY3NwMDMtd3dkcmczMDUwggEeBgNVHSAE
+ggEVMIIBETCCAQ0GCSqGSIb3Y2QFATCB/zCBwwYIKwYBBQUHAgIwgbYMgbNSZWxp
+YW5jZSBvbiB0aGlzIGNlcnRpZmljYXRlIGJ5IGFueSBwYXJ0eSBhc3N1bWVzIGFj
+Y2VwdGFuY2Ugb2YgdGhlIHRoZW4gYXBwbGljYWJsZSBzdGFuZGFyZCB0ZXJtcyBh
+bmQgY29uZGl0aW9ucyBvZiB1c2UsIGNlcnRpZmljYXRlIHBvbGljeSBhbmQgY2Vy
+dGlmaWNhdGlvbiBwcmFjdGljZSBzdGF0ZW1lbnRzLjA3BggrBgEFBQcCARYraHR0
+cHM6Ly93d3cuYXBwbGUuY29tL2NlcnRpZmljYXRlYXV0aG9yaXR5LzAWBgNVHSUB
+Af8EDDAKBggrBgEFBQcDAzAdBgNVHQ4EFgQUHVSxhfF3h+cDA49ZQ40M/2Jor4kw
+DgYDVR0PAQH/BAQDAgeAMBMGCiqGSIb3Y2QGAQcBAf8EAgUAMBMGCiqGSIb3Y2QG
+AQQBAf8EAgUAMA0GCSqGSIb3DQEBCwUAA4IBAQApOMgqVrjCTZ8FDK5KsiWJmnfm
+dTWs12qr2chtjTrkJtmrPZuuxxR4Yk77Jq5fJZJdjNDpAR36OtxB1g/sP2cgtOmL
+IlCt0J7YxYblhzCkRFJEO6O1qdKRy7qdGJ1t5rGgP9/if4ZK+txT0CQ5pU6Uxm1Y
+k7fknn1sal2bHJ8k+jFWnBBgHqOjqvmsTRQTA8ZV/ZmRsnvPWPPipXdlz7Ols4Q8
+UySusVqUm4Tuv+ToT0ijgaeLnz9MYz5nkZWOws0RAjlyO/xIOuUV8JcEpIZOLz6G
+zWRfRv1mGHYBG0daDKYtV23PmlPB3+nmlx4rhofPea36ZFjOW9aEaB97MZQE
+  # Add other API keys here...
+ASC_KEY_ID: 23T7883599
+ASC_ISSUER_ID: fc6acf86-1e27-43f5-9fc3-9b9e6707e593
+ASC_PRIVATE_KEY:
+    secure: 
+MIGTAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBHkwdwIBAQQgx6O1uiJBVUY08X5F
+lsaOBn4z2SzasQ/1e56YLLleeRCgCgYIKoZIzj0DAQehRANCAATOwmHSXTdGOkR5
+9k47MOtIMbvNEHsQ7b4Ynjb7n/FPTgP1medfJ6xIRTt4f3g4zLPG0ZFJZQ64oPAb
+cPm9FFPS
+install:
+  # 1. Download your secure files (p12 and p8)
+  - appveyor DownloadFile [P12_FILE_ID] -FileName ios_distribution.p12
+  - appveyor DownloadFile [P8_FILE_ID] -FileName AuthKey.p8
+  
+  # 2. Import the certificate into the Mac's keychain
+  - security create-keychain -p "" build.keychain
+  - security import ios_distribution.p12 -k build.keychain -P %P12_PASSWORD% -T /usr/bin/codesign
+  
+  # 3. Move your .mobileprovision file to where Xcode expects it
+  - mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+  - cp your_file_name.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+  - echo "%ASC_PRIVATE_KEY%" > AuthKey.p8
+
+build_script:
+  # Build the archive
+  - xcodebuild archive -project YourApp.xcodeproj -scheme YourApp -archivePath YourApp.xcarchive
+  # Export the .ipa using your API Key
+  - xcodebuild -exportArchive -archivePath YourApp.xcarchive -exportPath ./output -exportOptionsPlist exportOptions.plist -allowProvisioningUpdates -authenticationKeyID %ASC_KEY_ID% -authenticationKeyIssuerID %ASC_ISSUER_ID% -authenticationKeyPath ./AuthKey.p8
+
+artifacts:
+  - path: output/*.ipa
+    name: AppStoreBuild
