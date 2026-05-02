@@ -220,6 +220,46 @@ function shellLayout(content, route) {
       </section>
     `
     : "";
+  const pageAction =
+    route === "/inventory"
+      ? `
+        <button
+          id="page-floating-action"
+          class="page-fab page-fab-inventory"
+          type="button"
+          data-page-action="inventory-add"
+          aria-label="Add an inventory item from here"
+          aria-hidden="true"
+          tabindex="-1"
+        >
+          <span class="page-fab-icon" aria-hidden="true">+</span>
+          <span class="page-fab-copy">
+            <span class="page-fab-kicker">Keep stocking</span>
+            <span class="page-fab-label" data-role="page-fab-label">Add Item</span>
+            <span class="page-fab-meta" data-role="page-fab-meta">Open a quick add sheet</span>
+          </span>
+        </button>
+      `
+      : route === "/shopping"
+      ? `
+        <button
+          id="page-floating-action"
+          class="page-fab page-fab-shopping"
+          type="button"
+          data-page-action="shopping-restock"
+          aria-label="Restock checked items from here"
+          aria-hidden="true"
+          tabindex="-1"
+        >
+          <span class="page-fab-icon" aria-hidden="true">✓</span>
+          <span class="page-fab-copy">
+            <span class="page-fab-kicker">Keep moving</span>
+            <span class="page-fab-label" data-role="page-fab-label">Restock Checked</span>
+            <span class="page-fab-meta" data-role="page-fab-meta">Select items to enable</span>
+          </span>
+        </button>
+      `
+      : "";
 
   return `
     <div class="app-shell">
@@ -240,6 +280,7 @@ function shellLayout(content, route) {
         </div>
       </header>
       <main class="page">${expiryBanner}${content}</main>
+      ${pageAction}
       <nav class="bottom-nav">
         <div class="bottom-nav-inner">
           ${navLink("/inventory", "Inventory", route)}
@@ -605,9 +646,9 @@ export function renderInventory() {
   return shellLayout(
     `
     <section class="section-card">
-      <div class="row space" style="margin-bottom:8px;">
+      <div class="row space inventory-title-row" style="margin-bottom:8px;">
         <h1>Inventory Workspace</h1>
-        <button id="toggle-item-form">Add New</button>
+        <button id="toggle-item-form" aria-label="Add new item" title="Add New"><svg class="quick-add-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path d="M12 6C12.5523 6 13 6.44772 13 7V11H17C17.5523 11 18 11.4477 18 12C18 12.5523 17.5523 13 17 13H13V17C13 17.5523 12.5523 18 12 18C11.4477 18 11 17.5523 11 17V13H7C6.44772 13 6 12.5523 6 12C6 11.4477 6.44772 11 7 11H11V7C11 6.44772 11.4477 6 12 6Z" fill="#53c6ab"/><path fill-rule="evenodd" clip-rule="evenodd" d="M2 4.5C2 3.11929 3.11929 2 4.5 2H19.5C20.8807 2 22 3.11929 22 4.5V19.5C22 20.8807 20.8807 22 19.5 22H4.5C3.11929 22 2 20.8807 2 19.5V4.5ZM4.5 4C4.22386 4 4 4.22386 4 4.5V19.5C4 19.7761 4.22386 20 4.5 20H19.5C19.7761 20 20 19.7761 20 19.5V4.5C20 4.22386 19.7761 4 19.5 4H4.5Z" fill="#53c6ab"/></svg></button>
       </div>
 
       <div class="toolbar">
@@ -729,7 +770,8 @@ export function renderInventory() {
                       const isBrandNew = wear.enabled && wear.level === "Brand New";
                       const wearFillPercent = isBrandNew ? 0 : wear.percentage;
                       const wearLevelValue = wear.level.toLowerCase().replace(/\s+/g, "-");
-                      const byText = !query || item.name.toLowerCase().includes(query);
+                      const itemBrand = String(item && item.brand_name ? item.brand_name : "").toLowerCase();
+                      const byText = !query || item.name.toLowerCase().includes(query) || itemBrand.includes(query);
                       const byCat = filter === "all" || item.category.toLowerCase() === filter;
                       const byWear =
                         wearFilter === "all" ||
@@ -751,6 +793,7 @@ export function renderInventory() {
                     class="${itemClasses}"
                     data-role="inventory-item"
                     data-name="${escapeAttr(item.name.toLowerCase())}"
+                    data-brand="${escapeAttr(itemBrand)}"
                     data-category="${escapeAttr(item.category.toLowerCase())}"
                     data-stock="${stockPercent}"
                     data-updated="${updatedDate}"

@@ -46,6 +46,7 @@ let pendingSearchFocus = null;
 let filterIndicatorHideTimer = null;
 let saveNoticeHideTimer = null;
 let quickEditKeydownHandler = null;
+let pageFloatingActionCleanup = null;
 const tutorialState = {
   active: false,
   stepIndex: 0,
@@ -399,10 +400,11 @@ function applyInventoryListFilter(queryValue, categoryValue, wearValue, sortValu
 
   sortedCards.forEach((card) => {
     const itemName = String(card.getAttribute("data-name") || "").toLowerCase();
+    const itemBrand = String(card.getAttribute("data-brand") || "").toLowerCase();
     const itemCategory = String(card.getAttribute("data-category") || "").toLowerCase();
     const wearEnabled = card.getAttribute("data-wear-enabled") === "1";
     const wearLevel = String(card.getAttribute("data-wear-level") || "none").toLowerCase();
-    const byText = !query || itemName.includes(query);
+    const byText = !query || itemName.includes(query) || itemBrand.includes(query);
     const byCategory = category === "all" || itemCategory === category;
     const byWear =
       wear === "all" ||
@@ -578,7 +580,7 @@ function askRestockPurchaseDetails(items) {
       return;
     }
 
-    items.forEach((item) => {
+    items.forEach((item, index) => {
       const row = document.createElement("div");
       row.className = "restock-prompt-row";
 
@@ -600,6 +602,11 @@ function askRestockPurchaseDetails(items) {
       const controls = document.createElement("div");
       controls.className = "restock-prompt-controls";
 
+      const currentBrand = String((item && item.brand_name) || "").trim();
+      const previousItem = index > 0 ? items[index - 1] : null;
+      const lastItemBrand = String((previousItem && previousItem.brand_name) || currentBrand || "").trim();
+      const sameBrandReference = lastItemBrand || currentBrand;
+
       const toggleLabel = document.createElement("label");
       toggleLabel.className = "restock-prompt-toggle";
       const toggleInput = document.createElement("input");
@@ -610,6 +617,39 @@ function askRestockPurchaseDetails(items) {
       toggleText.textContent = "Yes, I purchased more";
       toggleLabel.appendChild(toggleInput);
       toggleLabel.appendChild(toggleText);
+
+      const sameBrandLabel = document.createElement("label");
+      sameBrandLabel.className = "restock-prompt-toggle";
+      const sameBrandInput = document.createElement("input");
+      sameBrandInput.type = "checkbox";
+      sameBrandInput.checked = true;
+      sameBrandInput.setAttribute("data-role", "restock-prompt-same-brand");
+      sameBrandInput.setAttribute("data-id", String(item.id || ""));
+      sameBrandInput.setAttribute("data-brand-reference", sameBrandReference);
+      sameBrandInput.setAttribute("data-current-brand", currentBrand);
+      const sameBrandText = document.createElement("span");
+      sameBrandText.textContent = "Is this the same brand as the last item added?";
+      sameBrandLabel.appendChild(sameBrandInput);
+      sameBrandLabel.appendChild(sameBrandText);
+
+      const brandField = document.createElement("label");
+      brandField.className = "restock-prompt-extra";
+      brandField.setAttribute("data-role", "restock-prompt-brand-field");
+      brandField.style.display = "none";
+
+      const brandText = document.createElement("span");
+      brandText.className = "field-label";
+      brandText.textContent = "Brand name";
+
+      const brandInput = document.createElement("input");
+      brandInput.type = "text";
+      brandInput.maxLength = "50";
+      brandInput.value = currentBrand;
+      brandInput.setAttribute("data-role", "restock-prompt-brand");
+      brandInput.setAttribute("data-id", String(item.id || ""));
+
+      brandField.appendChild(brandText);
+      brandField.appendChild(brandInput);
 
       const quantityField = document.createElement("label");
       quantityField.className = "restock-prompt-extra";
@@ -641,7 +681,18 @@ function askRestockPurchaseDetails(items) {
         }
       });
 
+      sameBrandInput.addEventListener("change", () => {
+        const isSameBrand = Boolean(sameBrandInput.checked);
+        brandField.style.display = isSameBrand ? "none" : "grid";
+        if (!isSameBrand) {
+          brandInput.focus();
+          if (typeof brandInput.select === "function") brandInput.select();
+        }
+      });
+
       controls.appendChild(toggleLabel);
+      controls.appendChild(sameBrandLabel);
+      controls.appendChild(brandField);
       controls.appendChild(quantityField);
 
       row.appendChild(header);
@@ -678,7 +729,7 @@ function askRestockPurchaseDetails(items) {
     });
 
     confirmBtn.addEventListener("click", () => {
-      const additions = {};
+      const details = {};
       const quantityInputs = overlay.querySelectorAll("[data-role='restock-prompt-extra']");
       for (const input of quantityInputs) {
         const id = input.getAttribute("data-id");
@@ -686,8 +737,22 @@ function askRestockPurchaseDetails(items) {
 
         const toggle = overlay.querySelector(`[data-role='restock-prompt-toggle'][data-id='${id}']`);
         const isChecked = Boolean(toggle && toggle.checked);
+        const sameBrandToggle = overlay.querySelector(`[data-role='restock-prompt-same-brand'][data-id='${id}']`);
+        const isSameBrand = Boolean(sameBrandToggle && sameBrandToggle.checked);
+        const brandInput = overlay.querySelector(`[data-role='restock-prompt-brand'][data-id='${id}']`);
+        const currentBrand = String((sameBrandToggle && sameBrandToggle.getAttribute("data-current-brand")) || "").trim();
+        const referenceBrand = String((sameBrandToggle && sameBrandToggle.getAttribute("data-brand-reference")) || currentBrand).trim();
+
+        let brandName = referenceBrand;
+        if (!isSameBrand) {
+          brandName = String((brandInput && brandInput.value) || "").trim();
+        }
+
         if (!isChecked) {
-          additions[id] = 0;
+          details[id] = {
+            added_quantity: 0,
+            brand_name: brandName,
+          };
           continue;
         }
 
@@ -698,27 +763,33 @@ function askRestockPurchaseDetails(items) {
           return;
         }
 
-        additions[id] = value;
+        details[id] = {
+          added_quantity: value,
+          brand_name: brandName,
+        };
       }
 
-      finish(additions);
+      finish(details);
     });
   });
 }
 
-function openQuickItemEditor(item, onRender) {
-  if (!item || typeof document === "undefined") return;
+function openQuickItemEditor(item, onRender, options = {}) {
+  if (typeof document === "undefined") return;
 
   closeQuickItemEditor();
 
+  const isCreateMode = !item || options.mode === "create";
   const state = getState();
   const categories = state.categories && state.categories.length
     ? state.categories.map((category) => String(category && category.name ? category.name : "").trim()).filter(Boolean)
     : ["Unsorted"];
   const fallbackCategory = categories[0] || "Unsorted";
-  const oldQuantity = getItemQuantity(item);
-  const oldStockLevel = getItemStockLevel(item);
-  const oldWearAndTear = getItemWearAndTear(item);
+  const oldQuantity = isCreateMode ? 1 : getItemQuantity(item);
+  const oldStockLevel = isCreateMode ? "Full" : getItemStockLevel(item);
+  const oldWearAndTear = isCreateMode ? { enabled: false, level: "Moderate" } : getItemWearAndTear(item);
+  const title = isCreateMode ? "Add Item" : "Edit Item";
+  const saveLabel = isCreateMode ? "Save Item" : "Save Changes";
 
   const overlay = document.createElement("div");
   overlay.id = QUICK_EDIT_MODAL_ID;
@@ -726,7 +797,7 @@ function openQuickItemEditor(item, onRender) {
   overlay.innerHTML = `
     <section class="quick-edit-sheet" role="dialog" aria-modal="true" aria-labelledby="quick-edit-title">
       <div class="quick-edit-header">
-        <h2 id="quick-edit-title">Edit Item</h2>
+        <h2 id="quick-edit-title">${title}</h2>
         <button type="button" class="ghost" data-role="quick-edit-cancel">Close</button>
       </div>
       <div class="quick-edit-grid">
@@ -772,13 +843,13 @@ function openQuickItemEditor(item, onRender) {
         <div id="quick-edit-unit-stock-levels" class="unit-level-wrap"></div>
         <label class="field" for="quick-edit-expiry">
           <span class="field-label">Expiry date</span>
-          <input id="quick-edit-expiry" type="date" />
+          <input id="quick-edit-expiry" type="date" style="max-width:160px;" />
         </label>
         <p class="help">For multi-quantity items, set stock and wear levels for each unit below.</p>
       </div>
       <div class="quick-edit-actions">
         <button type="button" class="ghost" data-role="quick-edit-cancel">Cancel</button>
-        <button type="button" class="primary" data-role="quick-edit-save">Save Changes</button>
+        <button type="button" class="primary" data-role="quick-edit-save">${saveLabel}</button>
       </div>
     </section>
   `;
@@ -971,18 +1042,18 @@ function openQuickItemEditor(item, onRender) {
     .join("");
   wearAndTearLevelInput.innerHTML = WEAR_LEVELS.map((level) => `<option>${level}</option>`).join("");
 
-  nameInput.value = item.name || "";
-  if (brandNameInput) brandNameInput.value = item.brand_name || "";
-  categoryInput.value = categories.includes(item.category) ? item.category : fallbackCategory;
+  nameInput.value = isCreateMode ? "" : item.name || "";
+  if (brandNameInput) brandNameInput.value = isCreateMode ? "" : item.brand_name || "";
+  categoryInput.value = !isCreateMode && categories.includes(item.category) ? item.category : fallbackCategory;
   stockLevelInput.value = oldStockLevel;
-  containerTypeInput.value = normalizeContainerType(item.container_type);
+  containerTypeInput.value = isCreateMode ? "" : normalizeContainerType(item.container_type);
   quantityInput.value = String(oldQuantity);
-  expiryInput.value = item.expiry_date || "";
+  expiryInput.value = isCreateMode ? "" : item.expiry_date || "";
   wearAndTearEnabledInput.checked = oldWearAndTear.enabled;
   wearAndTearLevelInput.value = oldWearAndTear.level;
   syncQuickWearAndTearFields();
-  syncQuickUnitWearLevelFields(getItemUnitWearLevels(item), { commitQuantity: true });
-  syncQuickUnitStockLevelFields(getItemUnitStockLevels(item), { commitQuantity: true });
+  syncQuickUnitWearLevelFields(isCreateMode ? [] : getItemUnitWearLevels(item), { commitQuantity: true });
+  syncQuickUnitStockLevelFields(isCreateMode ? [] : getItemUnitStockLevels(item), { commitQuantity: true });
 
   quantityInput.addEventListener("input", () => {
     syncQuickUnitStockLevelFields();
@@ -1074,49 +1145,89 @@ function openQuickItemEditor(item, onRender) {
         : isLowStockLevel(stockLevel);
 
       const next = deepClone(getState());
-      next.items = next.items.map((existing) =>
-        existing.id === item.id
-          ? {
-              ...existing,
-              name,
-              brand_name: brandName,
-              category,
-              quantity,
-              container_type: containerType,
-              unit_stock_levels: unitStockLevels,
-              stock_level: stockLevel,
-              percentage: stockPercentage,
-              wear_and_tear_enabled: wearAndTearEnabled,
-              wear_level: resolvedWearLevel,
-              wear_percentage: wearAndTearPercentage,
-              wear_unit_levels: wearAndTearEnabled ? unitWearLevels : [],
-              wear_decay_updated_at: wearAndTearEnabled ? Date.now() : 0,
-              expiry_date: expiry,
-              in_shopping_list: shouldRestock,
-              updated_date: Number(existing.updated_date) || Date.now(),
-            }
-          : existing
-      );
+      const previousScrollY = window.scrollY;
 
-      if (next.item_tombstones && typeof next.item_tombstones === "object") {
-        delete next.item_tombstones[item.id];
+      if (isCreateMode) {
+        const newId = safeUuid();
+        next.items.unshift({
+          id: newId,
+          name,
+          brand_name: brandName,
+          category,
+          quantity,
+          container_type: containerType,
+          unit_stock_levels: unitStockLevels,
+          stock_level: stockLevel,
+          percentage: stockPercentage,
+          wear_and_tear_enabled: wearAndTearEnabled,
+          wear_level: resolvedWearLevel,
+          wear_percentage: wearAndTearPercentage,
+          wear_unit_levels: wearAndTearEnabled ? unitWearLevels : [],
+          wear_decay_updated_at: wearAndTearEnabled ? Date.now() : 0,
+          in_shopping_list: shouldRestock,
+          expiry_date: expiry,
+          updated_date: Date.now(),
+        });
+        if (next.item_tombstones && typeof next.item_tombstones === "object") {
+          delete next.item_tombstones[newId];
+        }
+        trackInventoryChange("item_added", `Added item \"${name}\"`, {
+          item_id: newId,
+          item_name: name,
+          brand_name: brandName || null,
+          quantity,
+          container_type: containerType || null,
+          stock_level: stockLevel,
+          wear_and_tear_enabled: wearAndTearEnabled,
+          wear_level: resolvedWearLevel || null,
+          wear_unit_count: unitWearLevels.length || null,
+          expiry_date: expiry,
+          category,
+        });
+      } else {
+        next.items = next.items.map((existing) =>
+          existing.id === item.id
+            ? {
+                ...existing,
+                name,
+                brand_name: brandName,
+                category,
+                quantity,
+                container_type: containerType,
+                unit_stock_levels: unitStockLevels,
+                stock_level: stockLevel,
+                percentage: stockPercentage,
+                wear_and_tear_enabled: wearAndTearEnabled,
+                wear_level: resolvedWearLevel,
+                wear_percentage: wearAndTearPercentage,
+                wear_unit_levels: wearAndTearEnabled ? unitWearLevels : [],
+                wear_decay_updated_at: wearAndTearEnabled ? Date.now() : 0,
+                expiry_date: expiry,
+                in_shopping_list: shouldRestock,
+                updated_date: Number(existing.updated_date) || Date.now(),
+              }
+            : existing
+        );
+
+        if (next.item_tombstones && typeof next.item_tombstones === "object") {
+          delete next.item_tombstones[item.id];
+        }
+
+        trackInventoryChange("item_updated", `Updated item \"${name}\"`, {
+          item_id: item.id,
+          item_name: name,
+          brand_name: brandName || null,
+          quantity,
+          container_type: containerType || null,
+          stock_level: stockLevel,
+          wear_and_tear_enabled: wearAndTearEnabled,
+          wear_level: resolvedWearLevel || null,
+          wear_unit_count: unitWearLevels.length || null,
+          expiry_date: expiry,
+          category,
+        });
       }
 
-      trackInventoryChange("item_updated", `Updated item \"${name}\"`, {
-        item_id: item.id,
-        item_name: name,
-        brand_name: brandName || null,
-        quantity,
-        container_type: containerType || null,
-        stock_level: stockLevel,
-        wear_and_tear_enabled: wearAndTearEnabled,
-        wear_level: resolvedWearLevel || null,
-        wear_unit_count: unitWearLevels.length || null,
-        expiry_date: expiry,
-        category,
-      });
-
-      const previousScrollY = window.scrollY;
       setState(next);
       saveState();
       closeQuickItemEditor();
@@ -1124,7 +1235,7 @@ function openQuickItemEditor(item, onRender) {
       requestAnimationFrame(() => {
         window.scrollTo({ top: previousScrollY, behavior: "auto" });
       });
-      showSaveNotification(`Saved item: ${name}`);
+      showSaveNotification(`${isCreateMode ? "Added" : "Saved"} item: ${name}`);
     });
   }
 
@@ -1135,6 +1246,116 @@ function openQuickItemEditor(item, onRender) {
     }
   };
   document.addEventListener("keydown", quickEditKeydownHandler);
+}
+
+function setPageFloatingActionVisibility(button, isVisible) {
+  if (!button) return;
+  button.classList.toggle("is-visible", isVisible);
+  button.setAttribute("aria-hidden", isVisible ? "false" : "true");
+  button.tabIndex = isVisible ? 0 : -1;
+}
+
+function getPageFloatingActionRevealThreshold() {
+  if (typeof window === "undefined") return 72;
+  const topbarHeight = document.querySelector(".topbar")?.offsetHeight || 56;
+  return window.innerWidth <= 640 ? topbarHeight + 40 : topbarHeight + 16;
+}
+
+function getPageFloatingActionScrollRoom() {
+  if (typeof document === "undefined" || typeof window === "undefined") return 0;
+  const root = document.documentElement;
+  const body = document.body;
+  const contentHeight = Math.max(
+    root?.scrollHeight || 0,
+    body?.scrollHeight || 0,
+    root?.offsetHeight || 0,
+    body?.offsetHeight || 0
+  );
+  return Math.max(0, contentHeight - window.innerHeight);
+}
+
+function wirePageFloatingAction(onRender) {
+  if (pageFloatingActionCleanup) {
+    pageFloatingActionCleanup();
+    pageFloatingActionCleanup = null;
+  }
+
+  const button = document.getElementById("page-floating-action");
+  if (!button) return;
+
+  const label = button.querySelector("[data-role='page-fab-label']");
+  const meta = button.querySelector("[data-role='page-fab-meta']");
+  const action = button.getAttribute("data-page-action");
+  const shoppingChecks = [...document.querySelectorAll("[data-role='buy-check']")];
+  const initialScrollY = window.scrollY;
+  let isTicking = false;
+
+  const syncShoppingButton = () => {
+    if (action !== "shopping-restock") return;
+    const checkedCount = document.querySelectorAll("[data-role='buy-check']:checked").length;
+    const hasSelection = checkedCount > 0;
+    button.classList.toggle("is-disabled", !hasSelection);
+    button.disabled = !hasSelection;
+    if (label) {
+      label.textContent = hasSelection
+        ? `Restock ${checkedCount} Item${checkedCount === 1 ? "" : "s"}`
+        : "Restock Checked";
+    }
+    if (meta) {
+      meta.textContent = hasSelection ? "Apply restock now" : "Select items to enable";
+    }
+  };
+
+  const syncVisibility = () => {
+    isTicking = false;
+    const revealThreshold = getPageFloatingActionRevealThreshold();
+    const scrollRoom = getPageFloatingActionScrollRoom();
+    const hasEnoughScrollRoom = scrollRoom > revealThreshold;
+    const hasScrolledPastThreshold =
+      action === "shopping-restock"
+        ? window.scrollY - initialScrollY > revealThreshold
+        : window.scrollY > revealThreshold;
+    setPageFloatingActionVisibility(button, hasEnoughScrollRoom && hasScrolledPastThreshold);
+  };
+
+  const requestVisibilitySync = () => {
+    if (isTicking) return;
+    isTicking = true;
+    window.requestAnimationFrame(syncVisibility);
+  };
+
+  const handleClick = () => {
+    if (action === "inventory-add") {
+      openQuickItemEditor(null, onRender, { mode: "create" });
+      return;
+    }
+
+    if (action === "shopping-restock") {
+      const restockButton = document.getElementById("restock-selected");
+      if (restockButton && !button.disabled) {
+        restockButton.click();
+      }
+    }
+  };
+
+  syncVisibility();
+  syncShoppingButton();
+
+  window.addEventListener("scroll", requestVisibilitySync, { passive: true });
+  window.addEventListener("resize", requestVisibilitySync);
+  button.addEventListener("click", handleClick);
+  shoppingChecks.forEach((checkbox) => {
+    checkbox.addEventListener("change", syncShoppingButton);
+  });
+
+  pageFloatingActionCleanup = () => {
+    window.removeEventListener("scroll", requestVisibilitySync);
+    window.removeEventListener("resize", requestVisibilitySync);
+    button.removeEventListener("click", handleClick);
+    shoppingChecks.forEach((checkbox) => {
+      checkbox.removeEventListener("change", syncShoppingButton);
+    });
+  };
 }
 
 function trackInventoryChange(action, summary, details) {
@@ -1523,6 +1744,10 @@ export function wireWelcomeEvents(onRender) {
 }
 
 export function wireSharedEvents(onRender) {
+  if (pageFloatingActionCleanup) {
+    pageFloatingActionCleanup();
+    pageFloatingActionCleanup = null;
+  }
       // Find My Location button wiring
       const findBtn = document.getElementById('find-my-location');
       const statusEl = document.getElementById('find-location-status');
@@ -1864,20 +2089,23 @@ export function wireSharedEvents(onRender) {
     const state = getState();
     const selectedItems = state.items.filter((item) => selected.includes(item.id));
     const wearResetCount = selectedItems.filter((item) => getItemWearAndTear(item).enabled).length;
-    const quantityAdditions = await askRestockPurchaseDetails(selectedItems);
-    if (quantityAdditions === null) return;
+    const restockDetails = await askRestockPurchaseDetails(selectedItems);
+    if (restockDetails === null) return;
 
     const next = deepClone(state);
     next.items = next.items.map((item) => {
       if (!selected.includes(item.id)) return item;
       const baseQuantity = getItemQuantity(item);
-      const extraQuantityRaw = Number.parseInt(String(quantityAdditions[item.id] || "0"), 10);
+      const itemDetails = restockDetails[item.id] || {};
+      const extraQuantityRaw = Number.parseInt(String(itemDetails.added_quantity || "0"), 10);
       const extraQuantity = Number.isFinite(extraQuantityRaw) && extraQuantityRaw > 0 ? extraQuantityRaw : 0;
       const quantity = baseQuantity + extraQuantity;
       const wearAndTear = getItemWearAndTear(item);
       const wearUnitLevels = wearAndTear.enabled && quantity > 1 ? Array.from({ length: quantity }, () => "Brand New") : [];
+      const nextBrandName = typeof itemDetails.brand_name === "string" ? itemDetails.brand_name : String(item.brand_name || "");
       return {
         ...item,
+        brand_name: nextBrandName,
         quantity,
         unit_stock_levels: quantity > 1 ? Array.from({ length: quantity }, () => "Full") : [],
         stock_level: "Full",
@@ -1893,12 +2121,25 @@ export function wireSharedEvents(onRender) {
 
     setState(next);
     saveState();
-    const expandedItems = Object.entries(quantityAdditions)
-      .map(([itemId, added]) => ({ item_id: itemId, added_quantity: Number(added) || 0 }))
+    const expandedItems = Object.entries(restockDetails)
+      .map(([itemId, details]) => ({ item_id: itemId, added_quantity: Number(details && details.added_quantity) || 0 }))
       .filter((entry) => entry.added_quantity > 0);
+    const brandUpdatedItems = selectedItems
+      .map((selectedItem) => {
+        const details = restockDetails[selectedItem.id] || {};
+        const previousBrand = String(selectedItem.brand_name || "").trim();
+        const nextBrand = typeof details.brand_name === "string" ? details.brand_name.trim() : previousBrand;
+        return {
+          item_id: selectedItem.id,
+          previous_brand_name: previousBrand,
+          brand_name: nextBrand,
+        };
+      })
+      .filter((entry) => entry.brand_name !== entry.previous_brand_name);
     trackInventoryChange("bulk_restock", `Restocked ${selected.length} restock item(s)`, {
       item_ids: selected,
       increased_quantity_items: expandedItems,
+      updated_brand_items: brandUpdatedItems,
     });
     onRender();
 
@@ -1906,11 +2147,16 @@ export function wireSharedEvents(onRender) {
     if (expandedItems.length) {
       toastParts.push(`Increased quantity on ${expandedItems.length} item${expandedItems.length === 1 ? "" : "s"}.`);
     }
+    if (brandUpdatedItems.length) {
+      toastParts.push(`Updated brand on ${brandUpdatedItems.length} item${brandUpdatedItems.length === 1 ? "" : "s"}.`);
+    }
     if (wearResetCount) {
       toastParts.push(`Reset wear-and-tear on ${wearResetCount} item${wearResetCount === 1 ? "" : "s"}.`);
     }
     showSaveNotification(toastParts.join(" "));
   });
+
+  wirePageFloatingAction(onRender);
 
   if (tutorialState.active) {
     renderTutorialOverlay();

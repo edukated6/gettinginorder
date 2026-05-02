@@ -55,7 +55,7 @@ import {
   renderProfileSettings,
   renderMyInventories,
   renderCollaborationSettings,
-} from "./js/views.js?v=20260501h";
+} from "./js/views.js?v=20260502b";
 import {
   getUserInventories,
   getCollaborators,
