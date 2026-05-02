@@ -10,47 +10,138 @@
       href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./app.css" />
+    <link rel="icon" type="image/png" href="./favicon.png" />
+    <link rel="apple-touch-icon" href="./favicon.png" />
+    <link rel="manifest" href="./manifest.json" />
+    <link rel="stylesheet" href="./app.css?v=20260501f" />
     <title>nORDER</title>
   </head>
   <body>
     <div id="app"></div>
+    <script>
+      (function () {
+        function escapeHtml(value) {
+          return String(value == null ? "" : value)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/\"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+        }
+
+        window.norderRenderBootstrapFallback = function (options) {
+          var opts = options || {};
+          var title = escapeHtml(opts.title || "Notice");
+          var message = escapeHtml(opts.message || "");
+          var details = typeof opts.details === "string" && opts.details ? escapeHtml(opts.details) : "";
+          var actionId = escapeHtml(opts.actionId || "");
+          var actionLabel = escapeHtml(opts.actionLabel || "");
+
+          var html =
+            '<div class="bootstrap-fallback">' +
+            '<section class="bootstrap-fallback-card">' +
+            '<h1 class="bootstrap-fallback-title">' +
+            title +
+            "</h1>" +
+            '<p class="bootstrap-fallback-copy">' +
+            message +
+            "</p>";
+
+          if (details) {
+            html += '<p class="bootstrap-fallback-error">' + details + "</p>";
+          }
+
+          if (actionId && actionLabel) {
+            html +=
+              '<button id="' +
+              actionId +
+              '" class="bootstrap-fallback-btn">' +
+              actionLabel +
+              "</button>";
+          }
+
+          html += "</section></div>";
+          return html;
+        };
+      })();
+    </script>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
 
-    <script type="module">
-      import("./app.js?v=20260402b").catch((error) => {
+    <script type="module" defer>
+      import("./app.js?v=20260501g").catch((error) => {
         const app = document.getElementById("app");
         if (!app) return;
-        app.innerHTML = `
-          <div style="min-height:100vh;display:grid;place-items:center;padding:20px;font-family:Manrope,sans-serif;">
-            <section style="max-width:520px;width:100%;background:#fff;border:1px solid #d4e3df;border-radius:14px;padding:18px;box-shadow:0 10px 28px rgba(11,45,38,.08);">
-              <h1 style="margin:0 0 8px 0;color:#132521;">nOrder could not load</h1>
-              <p style="margin:0 0 10px 0;color:#4f6661;">The app script failed to start on this browser/device.</p>
-              <p style="margin:0 0 14px 0;color:#4f6661;font-size:14px;word-break:break-word;">${String(error?.message || error)}</p>
-              <button id="reload-app" style="background:#1f7a69;color:#fff;border:0;border-radius:10px;padding:10px 14px;">Reload</button>
-            </section>
-          </div>
-        `;
+        app.innerHTML = window.norderRenderBootstrapFallback({
+          title: "nOrder could not load",
+          message: "The inventory app script failed to start on this browser/device.",
+          details: String(error?.message || error || "Unknown startup error"),
+          actionId: "reload-app",
+          actionLabel: "Reload",
+        });
         document.getElementById("reload-app")?.addEventListener("click", () => {
           window.location.reload();
         });
       });
+
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("./service-worker.js").then((reg) => {
+            function showUpdateToast(worker) {
+              var toast = document.createElement("div");
+              toast.id = "norder-update-toast";
+              toast.style.cssText = [
+                "position:fixed","bottom:80px","left:50%","transform:translateX(-50%)",
+                "z-index:9999","display:flex","align-items:center","gap:12px",
+                "padding:12px 18px","border-radius:999px",
+                "background:color-mix(in srgb,var(--primary,#1f7a69) 90%,black 10%)",
+                "color:var(--on-primary,#fff)","font-size:0.875rem","font-weight:600",
+                "box-shadow:0 6px 24px rgba(0,0,0,0.28)","cursor:default"
+              ].join(";");
+              toast.innerHTML =
+                "<span>Update available</span>" +
+                "<button id=\"norder-update-btn\" style=\"background:rgba(255,255,255,0.22);border:none;" +
+                "border-radius:999px;padding:4px 14px;color:inherit;font:inherit;font-weight:700;cursor:pointer;\">" +
+                "Reload</button>";
+              document.body.appendChild(toast);
+              document.getElementById("norder-update-btn").addEventListener("click", function () {
+                worker.postMessage({ type: "SKIP_WAITING" });
+              });
+            }
+
+            if (reg.waiting) { showUpdateToast(reg.waiting); }
+
+            reg.addEventListener("updatefound", function () {
+              var newWorker = reg.installing;
+              if (!newWorker) return;
+              newWorker.addEventListener("statechange", function () {
+                if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+                  showUpdateToast(newWorker);
+                }
+              });
+            });
+
+            navigator.serviceWorker.addEventListener("controllerchange", function () {
+              window.location.reload();
+            });
+          }).catch((error) => {
+            console.warn("Service worker registration failed:", error);
+          });
+        });
+      }
     </script>
 
     <script nomodule>
       (function () {
         var app = document.getElementById("app");
         if (!app) return;
-        app.innerHTML =
-          '<div style="min-height:100vh;display:grid;place-items:center;padding:20px;font-family:sans-serif;">' +
-          '<section style="max-width:520px;width:100%;background:#fff;border:1px solid #d4e3df;border-radius:14px;padding:18px;">' +
-          '<h1 style="margin:0 0 8px 0;color:#132521;">Browser not supported</h1>' +
-          '<p style="margin:0;color:#4f6661;">This browser does not support JavaScript modules. Please update the browser or open from a modern browser.</p>' +
-          '</section>' +
-          '</div>';
+        app.innerHTML = window.norderRenderBootstrapFallback({
+          title: "Browser not supported",
+          message:
+            "This browser does not support JavaScript modules. Please update the browser or open from a modern browser.",
+        });
       })();
     </script>
   </body>

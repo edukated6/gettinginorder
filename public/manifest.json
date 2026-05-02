@@ -1,0 +1,78 @@
+{
+  "name": "nORDER",
+  "short_name": "nORDER",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "description": "Collaborative inventory tracking with shared spaces, restock lists, and change history.",
+  "background_color": "#ffffff",
+  "theme_color": "#008080",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "screenshot-wide.png",
+      "sizes": "1860x867",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "nORDER dashboard on desktop"
+    },
+    {
+      "src": "screenshot-mobile.png",
+      "sizes": "352x760",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "nORDER dashboard on mobile"
+    }
+  ],
+  "dir": "auto",
+  "lang": "en",
+  "categories": [
+    "health",
+    "lifestyle",
+    "shopping"
+  ],
+  "orientation": "portrait",
+  "prefer_related_applications": false,
+  "related_applications": [],
+  "iarc_rating_id": "",
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui",
+    "browser"
+  ],
+  "scope_extensions": [
+    {
+      "origin": "https://norder-c9425.web.app"
+    },
+    {
+      "origin": "https://norder-c9425.firebaseapp.com"
+    }
+  ]
+}

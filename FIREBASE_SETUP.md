@@ -1,210 +1,150 @@
-# nOrder - Firebase Setup Guide
+# nORDER Firebase Setup Guide
 
 ## Overview
-nOrder now supports collaborative inventory management using Firebase. Multiple users can log in, create shared inventories, and collaborate with invite codes.
 
-## Required Changes to Use Collaboration Features
+nORDER uses Firebase Authentication and Firebase Realtime Database for:
+- Email/password sign in
+- Shared inventory spaces
+- Invite-code collaboration
+- Real-time sync
+- Activity logging and accountability
 
-### Step 1: Create a Firebase Project
+This guide reflects the current app architecture and deploy scripts.
 
-1. Go to [Firebase Console](https://console.firebase.google.com)
-2. Click "Create a new project"
-3. Name it "nOrder" and continue through the setup
-4. Choose your region and disable Google Analytics (optional)
-5. Click "Create project" and wait for it to complete
+## Prerequisites
 
-### Step 2: Set Up Authentication
+1. Install Node.js (includes npm and npx)
+2. Create a Firebase project in the Firebase Console
+3. Clone this repository locally
 
-1. In Firebase Console, go to **Authentication**
-2. Click **Get Started**
-3. Enable **Email/Password** provider:
-   - Click Email/Password
-   - Toggle "Email/Password" to ON
-   - Keep "Email link (passwordless sign-in)" OFF
-   - Click Save
+## Step 1: Enable Firebase Authentication
 
-### Step 3: Create a Realtime Database
+1. Open your Firebase project
+2. Go to Authentication
+3. Enable Email/Password provider
 
-1. In Firebase Console, go to **Realtime Database**
-2. Click **Create Database**
-3. Select your region and start in **Test Mode** (for development)
-4. Click **Enable**
+## Step 2: Create Realtime Database
 
-**Security Note:**  
-For production, update your database rules to:
-```json
-{
-  "rules": {
-    "inventories": {
-      "$inventoryId": {
-        ".read": "auth != null && root.child('inventories').child($inventoryId).child('collaborators').child(auth.uid).exists()",
-        ".write": "auth != null && ((!data.exists() && newData.child('owner_id').val() === auth.uid && newData.child('collaborators').child(auth.uid).exists()) || data.child('collaborators').child(auth.uid).exists())"
-      }
-    },
-    "user_inventories": {
-      "$userId": {
-        ".read": "auth != null && $userId === auth.uid",
-        ".write": "auth != null && $userId === auth.uid"
-      }
-    }
-  }
-}
-```
+1. Open Realtime Database in Firebase Console
+2. Create database in your preferred region
+3. Start in locked mode if possible
+4. Deploy project rules from this repo (next step)
 
-These rules are important because they allow the creator to write a brand new inventory first, and then enforce collaborator-based access afterward.
+## Step 3: Deploy Database Rules
 
-### Step 4: Get Your Firebase Credentials
+This project includes production-focused rules in database.rules.json.
 
-1. In Firebase Console, click **Project Settings** (gear icon)
-2. Go to **General** tab
-3. Scroll to "Your apps" section
-4. Click the `</>` (web) icon to create a web app (if not already created)
-5. Copy the config object that looks like:
-```javascript
-{
-  apiKey: "...",
-  authDomain: "...",
-  databaseURL: "...",
-  projectId: "...",
-  storageBucket: "...",
-  messagingSenderId: "...",
-  appId: "..."
-}
-```
+From the project root, run one of these:
+- PowerShell: ./deploy.ps1 -RulesOnly
+- PowerShell with explicit project: ./deploy.ps1 -RulesOnly -ProjectId YOUR_PROJECT_ID
+- CMD wrapper: deploy.bat rules
+- CMD wrapper with explicit project: deploy.bat rules YOUR_PROJECT_ID
 
-### Step 5: Update Firebase Config
+Rules currently cover:
+- Inventory access restricted to collaborators
+- Owner-only controls for sensitive collaboration paths
+- Invite-code index ownership checks
+- Per-user isolation for user_inventories and user_profiles
 
-1. Open `js/firebase-config.js`
-2. Replace the config values with your actual Firebase credentials from Step 4
-3. Make sure `databaseURL` matches your Realtime Database URL (ends with `.firebaseio.com`)
+## Step 4: Configure Firebase Client Credentials
 
-```javascript
-export const firebaseConfig = {
-  apiKey: "YOUR_API_KEY_HERE",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID",
-};
-```
+Update the Firebase config object in:
+- public/js/firebase-config.js
 
-### Step 6: Replace app.js
+Required values:
+- apiKey
+- authDomain
+- databaseURL
+- projectId
+- storageBucket
+- messagingSenderId
+- appId
 
-The old `app.js` file has been replaced with `app-new.js` to support authentication. You have two options:
+Notes:
+- databaseURL should match your Realtime Database endpoint
+- App Hosting uses files under public/
+- Mirror files also exist in the root and js/ paths; keep them in sync as needed
 
-**Option A: Use Collaboration Features (Recommended)**
-1. Backup your old `app.js`: `cp app.js app-old.js`
-2. Replace with new version: `cp app-new.js app.js`
-3. Update `index.html` to reference the new app.js (it should already be updated)
+## Step 5: Set Firebase Project for Deploy
 
-**Option B: Keep Legacy Local-Only Mode**
-- Keep the old `app.js` as-is
-- The app will work with local storage only (no collaboration)
-- Firebase features won't be available
+Set your default project in .firebaserc, or pass project ID on each deploy command.
 
-## Features After Setup
+## Step 6: Deploy Hosting + Rules
 
-### User Authentication
-- Users can sign up with email/password
-- Secure login system with password validation
-- Session management (logout available in inventory selection screen)
+Recommended full deploy commands:
+- PowerShell: ./deploy.ps1
+- PowerShell with explicit project: ./deploy.ps1 -ProjectId YOUR_PROJECT_ID
+- CMD wrapper: deploy.bat
+- CMD wrapper with explicit project: deploy.bat YOUR_PROJECT_ID
 
-### Collaborative Inventories
-- **Create Shared Inventory**: Create a new inventory and get an invite code
-- **Invite Collaborators**: Share invite codes with other users
-- **Admin Controls**: Inventory owner can:
-  - Generate multiple invite codes
-  - Remove collaborators
-  - Delete invite codes
-  - Manage who has access
+## First-Run User Tutorial
 
-### Real-Time Sync
-- Changes to inventory items sync in real-time to all collaborators
-- Multiple users can edit the same inventory simultaneously
-- Automatic Firebase Realtime Database sync
+After setup/deploy, new users can:
 
-## Usage Examples
+1. Sign in and onboard
+- Create account with email/password
+- Add display name and optional avatar
 
-### Creating a Shared Inventory
-1. Sign up/login with email and password
-2. Click "New Inventory"
-3. Enter inventory name (e.g., "Apartment Stock")
-4. Share the generated invite code with family/roommates
-5. They can click "Join Shared Inventory" and paste the code
+2. Create or join inventory spaces
+- Use New Space to create
+- Use invite code to join shared spaces
 
-### Joining Existing Inventory
-1. Sign up/login
-2. Get the invite code from inventory owner
-3. Click "Join Shared Inventory"
-4. Paste the code
-5. You'll now have access to the shared inventory
+3. Manage inventory with richer item detail
+- Add category, quantity, container type, and stock level
+- For quantity greater than 1, set per-unit stock levels
 
-### Managing Collaborators
-1. In Settings, click "Manage Collaborators"
-2. See all team members and their roles
-3. Remove members (admin only)
-4. Generate or delete invite codes (admin only)
+4. Collaborate safely
+- Owners generate/revoke invite codes
+- Owners can remove collaborators
+
+5. Track accountability
+- Open View Change History in settings
+- Review actor, action summary, and timestamps
+
+6. Configure preferences
+- Account-level: theme, dark mode, profile image, password
+- Inventory-level: space name, tombstone retention days
+
+## What Is New in This Build
+
+Compared to earlier docs/flows, the current app now includes:
+- Multi-space inventory selection flow after auth
+- Invite-code index and stricter rules model
+- Activity timeline for inventory changes
+- Per-unit stock modeling for multi-quantity items
+- Explicit separation of account prefs vs inventory prefs
+- Deploy helpers for Hosting-only, Rules-only, or full deploy
 
 ## Troubleshooting
 
-### "Firebase SDK not loaded" Error
-- Check that Firebase CDN scripts are in `index.html`
-- Verify the Firebase script URLs are accessible
+### Firebase SDK not loaded
+- Verify Firebase scripts exist in index.html
+- Confirm browser can fetch Firebase CDN assets
 
-### Authentication Fails
-- Verify credentials in `firebase-config.js`
-- Check that Authentication is enabled in Firebase Console
-- Ensure Email/Password provider is active
+### Sign in or sign up fails
+- Confirm Email/Password auth is enabled
+- Confirm config values in public/js/firebase-config.js are correct
 
-### Database Not Syncing
-- Verify Realtime Database is created in Firebase
-- Check database URL in config matches your Firebase project
-- Ensure database is not in "disabled" state
+### No data sync
+- Confirm Realtime Database exists and is active
+- Confirm databaseURL points to the same Firebase project
+- Confirm rules were deployed successfully
 
-### Invite Codes Not Working
-- Verify the code is typed correctly (case-sensitive)
-- Check the code hasn't exceeded max uses
-- Ensure the invitation still exists (owner may have deleted it)
+### Invite code not working
+- Codes are uppercase and must exist
+- Code may have been deleted by owner
+- Ensure user has network access and auth session is valid
 
-## Security Notes
+### Deploy script error
+- Confirm npx is available in shell
+- Confirm you are logged in with Firebase CLI via npx -y firebase-tools@latest login
+- Confirm project ID is valid when using -ProjectId
 
-⚠️ **Important**: The default configuration uses Firebase Test Mode which allows public read/write access. 
+## Security Recommendations
 
-For production use:
-1. Implement proper database rules (see Step 3)
-2. Enable Email verification
-3. Implement rate limiting on authentication
-4. Use Firebase App Check for additional security
-5. Never expose API keys in production (use environment variables)
-
-## Questions or Issues?
-
-If you encounter problems:
-1. Check the browser console for error messages
-2. Verify your Firebase configuration matches your project
-3. Ensure all scripts load properly
-4. Check Firebase Console for any warnings/errors
-
-## File Changes Summary
-
-**New Files:**
-- `js/firebase-config.js` - Firebase configuration
-- `js/auth.js` - Authentication logic
-- `js/collaboration.js` - Collaboration features
-- `js/auth-events.js` - Auth event handlers
-- `app-new.js` - Updated app with auth support
-
-**Updated Files:**
-- `js/state.js` - Added inventory tracking
-- `js/views.js` - Added auth and collaboration views
-- `index.html` - Added Firebase SDK references
-- `app.js` - (Backup as app-old.js if needed)
-
-**Unchanged:**
-- `js/router.js` - Routing logic
-- `js/utils.js` - Utility functions
-- `js/events.js` - Event handling
-- `app.css` - Styling
-- `README.md` - Original readme
+For production hardening:
+1. Keep Realtime Database rules in source control and deploy from repo
+2. Enable and enforce email verification where required by policy
+3. Rotate and audit collaborator access regularly
+4. Consider Firebase App Check and additional abuse controls
+5. Do not commit secrets beyond intended public web config

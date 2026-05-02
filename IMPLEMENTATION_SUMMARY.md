@@ -40,7 +40,7 @@ After authentication:
 - **`/#/inventories`** - Select or create an inventory (shown after first login)
 - **`/#/dashboard`** - Dashboard with inventory overview
 - **`/#/inventory`** - Manage items in inventory
-- **`/#/shopping`** - Shopping list
+- **`/#/shopping`** - Restock list
 - **`/#/settings`** - Settings and collaboration management
 - **`/#/collaboration`** - Detailed collaborator/invite code management
 
@@ -77,7 +77,7 @@ Once Firebase is configured:
 ### Shared Inventories
 - Each inventory is independent and can have multiple collaborators
 - Owner is set as "Admin" and can manage collaborators
-- Members can edit inventory items, add to shopping list, etc.
+- Members can edit inventory items, add to the restock list, etc.
 
 ### Invite Codes
 - 6-character alphanumeric codes (e.g., "ABC123")

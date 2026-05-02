@@ -1,0 +1,13 @@
+{
+  "name": "norder",
+  "version": "1.0.0",
+  "description": "Collaborative inventory management PWA",
+  "scripts": {
+    "build": "node build.js",
+    "start": "npx http-server public -p 8080"
+  },
+  "devDependencies": {
+    "csso": "^5.0.5",
+    "esbuild": "^0.28.0"
+  }
+}

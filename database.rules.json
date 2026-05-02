@@ -1,0 +1,50 @@
+{
+  "rules": {
+    "inventories": {
+      "$inventoryId": {
+        ".read": "auth != null && data.child('collaborators').child(auth.uid).exists()",
+        ".write": "auth != null && ((!data.exists() && newData.child('owner_id').val() === auth.uid && newData.child('collaborators').child(auth.uid).exists()) || data.child('owner_id').val() === auth.uid)",
+        "collaborators": {
+          "$uid": {
+            ".read": "auth != null && root.child('inventories').child($inventoryId).child('collaborators').child(auth.uid).exists()",
+            ".write": "auth != null && ((auth.uid === $uid && !data.exists() && root.child('inventories').child($inventoryId).child('invite_codes').child(newData.child('invite_code').val()).exists()) || root.child('inventories').child($inventoryId).child('owner_id').val() === auth.uid)"
+          }
+        },
+        "invite_codes": {
+          "$code": {
+            ".read": "auth != null",
+            ".write": "auth != null && (root.child('inventories').child($inventoryId).child('owner_id').val() === auth.uid || (data.exists() && newData.child('created_by').val() === data.child('created_by').val() && newData.child('created_at').val() === data.child('created_at').val() && newData.child('max_uses').val() === data.child('max_uses').val() && newData.child('uses').isNumber() && newData.child('uses').val() === data.child('uses').val() + 1))"
+          }
+        },
+        "data": {
+          ".read": "auth != null && root.child('inventories').child($inventoryId).child('collaborators').child(auth.uid).exists()",
+          ".write": "auth != null && root.child('inventories').child($inventoryId).child('collaborators').child(auth.uid).exists()"
+        },
+        "activity_logs": {
+          ".read": "auth != null && root.child('inventories').child($inventoryId).child('collaborators').child(auth.uid).exists()",
+          "$logId": {
+            ".write": "auth != null && root.child('inventories').child($inventoryId).child('collaborators').child(auth.uid).exists()"
+          }
+        }
+      }
+    },
+    "invite_code_index": {
+      "$code": {
+        ".read": "auth != null",
+        ".write": "auth != null && ((!data.exists() && root.child('inventories').child(newData.child('inventory_id').val()).child('owner_id').val() === auth.uid) || (data.exists() && root.child('inventories').child(data.child('inventory_id').val()).child('owner_id').val() === auth.uid))"
+      }
+    },
+    "user_inventories": {
+      "$userId": {
+        ".read": "auth != null && $userId === auth.uid",
+        ".write": "auth != null && $userId === auth.uid"
+      }
+    },
+    "user_profiles": {
+      "$userId": {
+        ".read": "auth != null && $userId === auth.uid",
+        ".write": "auth != null && $userId === auth.uid"
+      }
+    }
+  }
+}

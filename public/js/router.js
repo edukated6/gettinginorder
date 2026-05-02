@@ -1,3 +1,10 @@
+/*
+  router.js
+  Purpose:
+  - Tiny hash-based router utilities.
+  - Read current route/query and navigate with setRoute().
+*/
+
 export function getRoute() {
   const hash = window.location.hash || "#/";
   const normalized = hash.startsWith("#") ? hash.slice(1) : hash;
