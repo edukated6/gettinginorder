@@ -3075,6 +3075,8 @@ a.about-back-link.ghost {
     height: 28px;
     padding: 0;
     margin: 0;
+    margin-left: 40px;
+    margin-bottom: -3px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -3083,8 +3085,8 @@ a.about-back-link.ghost {
   }
 
   #toggle-item-form .quick-add-icon {
-    width: 22px;
-    height: 22px;
+    width: 100px;
+    height: 100px;
   }
 
   .page-fab {
