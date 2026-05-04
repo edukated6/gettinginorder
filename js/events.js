@@ -18,6 +18,7 @@ import {
   normalizeStockLevel,
   stockLevelToPercentage,
 } from "./utils.js";
+import { announceUnreadNotifications, dismissNotifications, markNotificationsRead } from "./notifications.js";
 import { getCurrentInventoryId } from "./state.js";
 import { getCurrentUser } from "./auth.js";
 import {
@@ -440,6 +441,20 @@ function setInventoryFilteringIndicator(isVisible) {
     indicator.classList.remove("is-visible");
     filterIndicatorHideTimer = null;
   }, 120);
+}
+
+function setNotificationCenterOpen(isOpen) {
+  const panel = document.getElementById("norder-notification-center");
+  const trigger = document.getElementById("open-notifications");
+  if (!panel || !trigger) return;
+
+  if (isOpen) {
+    panel.removeAttribute("hidden");
+    trigger.setAttribute("aria-expanded", "true");
+  } else {
+    panel.setAttribute("hidden", "hidden");
+    trigger.setAttribute("aria-expanded", "false");
+  }
 }
 
 function setCategoryEditMode(row, isEditing) {
@@ -1289,6 +1304,23 @@ function wirePageFloatingAction(onRender) {
   const shoppingChecks = [...document.querySelectorAll("[data-role='buy-check']")];
   const initialScrollY = window.scrollY;
   let isTicking = false;
+  let hideTimer = null;
+  const IDLE_TIMEOUT_MS = 2500;
+
+  const scheduleHide = () => {
+    if (hideTimer) clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => {
+      setPageFloatingActionVisibility(button, false);
+      hideTimer = null;
+    }, IDLE_TIMEOUT_MS);
+  };
+
+  const cancelHide = () => {
+    if (hideTimer) {
+      clearTimeout(hideTimer);
+      hideTimer = null;
+    }
+  };
 
   const syncShoppingButton = () => {
     if (action !== "shopping-restock") return;
@@ -1315,10 +1347,14 @@ function wirePageFloatingAction(onRender) {
       action === "shopping-restock"
         ? window.scrollY - initialScrollY > revealThreshold
         : window.scrollY > revealThreshold;
-    setPageFloatingActionVisibility(button, hasEnoughScrollRoom && hasScrolledPastThreshold);
+    const shouldShow = hasEnoughScrollRoom && hasScrolledPastThreshold;
+    setPageFloatingActionVisibility(button, shouldShow);
+    if (shouldShow) scheduleHide();
+    else cancelHide();
   };
 
   const requestVisibilitySync = () => {
+    cancelHide();
     if (isTicking) return;
     isTicking = true;
     window.requestAnimationFrame(syncVisibility);
@@ -1349,6 +1385,7 @@ function wirePageFloatingAction(onRender) {
   });
 
   pageFloatingActionCleanup = () => {
+    cancelHide();
     window.removeEventListener("scroll", requestVisibilitySync);
     window.removeEventListener("resize", requestVisibilitySync);
     button.removeEventListener("click", handleClick);
@@ -2157,6 +2194,7 @@ export function wireSharedEvents(onRender) {
   });
 
   wirePageFloatingAction(onRender);
+  announceUnreadNotifications();
 
   if (tutorialState.active) {
     renderTutorialOverlay();
@@ -2175,6 +2213,15 @@ function delegatedKeydown(e) {
     e.preventDefault();
     closeTutorial();
     return;
+  }
+
+  if (e && e.key === "Escape") {
+    const panel = document.getElementById("norder-notification-center");
+    if (panel && !panel.hasAttribute("hidden")) {
+      e.preventDefault();
+      setNotificationCenterOpen(false);
+      return;
+    }
   }
 
   const target = e && e.target;
@@ -2218,6 +2265,56 @@ async function delegatedClick(e, onRender) {
 
   const action = btn.getAttribute("data-action");
   const id = btn.getAttribute("data-id");
+
+  if (action === "toggle-notification-center") {
+    const panel = document.getElementById("norder-notification-center");
+    const isOpen = Boolean(panel && !panel.hasAttribute("hidden"));
+    setNotificationCenterOpen(!isOpen);
+    return;
+  }
+
+  if (action === "close-notification-center") {
+    setNotificationCenterOpen(false);
+    return;
+  }
+
+  if (action === "mark-all-notifications-read") {
+    const ids = [...document.querySelectorAll("button[data-action='open-notification'][data-id]")]
+      .map((el) => String(el.getAttribute("data-id") || "").trim())
+      .filter(Boolean);
+    if (ids.length) {
+      markNotificationsRead(ids);
+      setNotificationCenterOpen(false);
+      onRender();
+    }
+    return;
+  }
+
+  if (action === "clear-notifications") {
+    const ids = [...document.querySelectorAll("button[data-action='open-notification'][data-id]")]
+      .map((el) => String(el.getAttribute("data-id") || "").trim())
+      .filter(Boolean);
+    if (ids.length) {
+      dismissNotifications(ids);
+      setNotificationCenterOpen(false);
+      onRender();
+    }
+    return;
+  }
+
+  if (action === "open-notification") {
+    const route = String(btn.getAttribute("data-route") || "/inventory").trim() || "/inventory";
+    if (id) {
+      markNotificationsRead([id]);
+    }
+    setNotificationCenterOpen(false);
+    if (getRoute() === route) {
+      onRender();
+      return;
+    }
+    setRoute(route);
+    return;
+  }
 
   const state = getState();
   const next = deepClone(state);
@@ -2598,22 +2695,45 @@ function saveInventoryItem() {
 function saveInventoryPrefs() {
   const homeInput = document.getElementById("prefs-home");
   const tombstoneDaysInput = document.getElementById("prefs-tombstone-days");
+  const notifyExpiryEnabledInput = document.getElementById("prefs-notify-expiry-enabled");
+  const notifyExpirySoonDaysInput = document.getElementById("prefs-notify-expiry-soon-days");
+  const notifyStockEnabledInput = document.getElementById("prefs-notify-stock-enabled");
+  const notifyWearEnabledInput = document.getElementById("prefs-notify-wear-enabled");
+  const notifyRestockEnabledInput = document.getElementById("prefs-notify-restock-enabled");
 
   const home = (homeInput && homeInput.value ? homeInput.value : "").trim() || defaultHomeName;
   const parsedRetentionDays = Number(tombstoneDaysInput && tombstoneDaysInput.value);
   const tombstoneRetentionDays = Number.isFinite(parsedRetentionDays)
     ? Math.min(365, Math.max(1, Math.round(parsedRetentionDays)))
     : 30;
+  const parsedExpirySoonDays = Number(notifyExpirySoonDaysInput && notifyExpirySoonDaysInput.value);
+  const expirySoonDays = Number.isFinite(parsedExpirySoonDays)
+    ? Math.min(60, Math.max(1, Math.round(parsedExpirySoonDays)))
+    : 7;
+  const notifyExpiryEnabled = notifyExpiryEnabledInput ? Boolean(notifyExpiryEnabledInput.checked) : true;
+  const notifyStockEnabled = notifyStockEnabledInput ? Boolean(notifyStockEnabledInput.checked) : true;
+  const notifyWearEnabled = notifyWearEnabledInput ? Boolean(notifyWearEnabledInput.checked) : true;
+  const notifyRestockEnabled = notifyRestockEnabledInput ? Boolean(notifyRestockEnabledInput.checked) : true;
 
   const state = getState();
   const next = deepClone(state);
   next.prefs.home_name = home;
   next.prefs.item_tombstone_retention_days = tombstoneRetentionDays;
+  next.prefs.notification_expiry_enabled = notifyExpiryEnabled;
+  next.prefs.notification_stock_enabled = notifyStockEnabled;
+  next.prefs.notification_wear_enabled = notifyWearEnabled;
+  next.prefs.notification_restock_enabled = notifyRestockEnabled;
+  next.prefs.notification_expiry_soon_days = expirySoonDays;
 
   setState(next);
   saveState();
   trackInventoryChange("preferences_updated", "Updated inventory preferences", {
     home_name: home,
     item_tombstone_retention_days: tombstoneRetentionDays,
+    notification_expiry_enabled: notifyExpiryEnabled,
+    notification_stock_enabled: notifyStockEnabled,
+    notification_wear_enabled: notifyWearEnabled,
+    notification_restock_enabled: notifyRestockEnabled,
+    notification_expiry_soon_days: expirySoonDays,
   });
 }

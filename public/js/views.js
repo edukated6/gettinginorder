@@ -8,6 +8,7 @@
 import { getHashParams } from "./router.js";
 import { getState } from "./state.js";
 import { getRecentAccounts } from "./auth.js";
+import { getNotificationSummary } from "./notifications.js";
 import {
   STOCK_LEVELS,
   escapeAttr,
@@ -197,6 +198,9 @@ function shellLayout(content, route) {
   const state = getState();
   const restockCount = state.items.filter((item) => item.in_shopping_list).length;
   const expiryOverview = getExpiryOverview(state.items);
+  const notificationSummary = getNotificationSummary(state);
+  const notificationUnread = notificationSummary.unreadCount;
+  const hasNotifications = notificationSummary.totalCount > 0;
   const expiryRoute = "/inventory?q=&cat=all&wear=all&sort=expiry";
   const greeting = state.prefs.profile_name
     ? `Welcome, ${escapeHtml(state.prefs.profile_name)}`
@@ -260,6 +264,56 @@ function shellLayout(content, route) {
         </button>
       `
       : "";
+  const notificationPanel = `
+    <aside
+      id="norder-notification-center"
+      hidden
+      aria-label="Inventory notifications"
+      style="position:fixed;top:72px;right:14px;z-index:60;width:min(420px,calc(100vw - 28px));max-height:min(72vh,560px);overflow:auto;border:1px solid color-mix(in srgb,var(--primary) 30%,var(--border));border-radius:14px;padding:10px;background:color-mix(in srgb,var(--surface) 96%,var(--bg));box-shadow:0 18px 40px rgba(0,0,0,0.28);"
+    >
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">
+        <div>
+          <div style="font-size:0.72rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-soft);">Notifications</div>
+          <div style="font-size:0.85rem;color:var(--text-soft);">${notificationUnread} unread of ${notificationSummary.totalCount}</div>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button type="button" class="ghost" data-action="clear-notifications" ${hasNotifications ? "" : "disabled"}>Clear</button>
+          <button type="button" class="ghost" data-action="mark-all-notifications-read" ${hasNotifications ? "" : "disabled"}>Mark all read</button>
+          <button type="button" class="ghost" data-action="close-notification-center" aria-label="Close notifications">Close</button>
+        </div>
+      </div>
+      <div style="display:grid;gap:8px;">
+        ${
+          notificationSummary.notifications.length
+            ? notificationSummary.notifications
+                .map(
+                  (notice) => `
+                    <button
+                      type="button"
+                      class="ghost"
+                      data-action="open-notification"
+                      data-id="${escapeAttr(notice.id)}"
+                      data-route="${escapeAttr(notice.route || "/inventory")}" 
+                      style="text-align:left;display:grid;gap:3px;padding:10px;border-radius:10px;border:1px solid color-mix(in srgb,var(--primary) 20%,var(--border));background:${
+                        notice.isUnread
+                          ? "color-mix(in srgb,var(--primary) 14%,var(--surface))"
+                          : "color-mix(in srgb,var(--surface-muted) 68%,var(--surface))"
+                      };"
+                    >
+                      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                        <strong style="font-size:0.9rem;">${escapeHtml(notice.title)}</strong>
+                        ${notice.isUnread ? '<span style="font-size:0.7rem;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;color:var(--primary);">New</span>' : ""}
+                      </div>
+                      <span style="font-size:0.8rem;color:var(--text-soft);">${escapeHtml(notice.body)}</span>
+                    </button>
+                  `
+                )
+                .join("")
+            : '<div class="help" style="padding:6px 2px;">No active inventory alerts right now.</div>'
+        }
+      </div>
+    </aside>
+  `;
 
   return `
     <div class="app-shell">
@@ -272,6 +326,19 @@ function shellLayout(content, route) {
           <button id="open-tutorial" class="ghost" aria-label="Open beginner tutorial" title="Beginner tutorial">
             <span class="tutorial-trigger-glyph" aria-hidden="true">?</span><span class="topbar-label">Tutorial</span>
           </button>
+          <button
+            id="open-notifications"
+            class="ghost"
+            data-action="toggle-notification-center"
+            aria-expanded="false"
+            aria-controls="norder-notification-center"
+            aria-label="Open notifications"
+            style="position:relative;width:42px;height:42px;display:inline-grid;place-items:center;padding:0;border:0;background:transparent;"
+          >
+            <img src="bell-alt-svgrepo-com.svg" aria-hidden="true" style="width:1.8rem;height:1.8rem;display:block;" alt="">
+            ${notificationUnread ? `<span style="position:absolute;top:-2px;right:-2px;min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:linear-gradient(135deg,#d85a4a,#a23224);color:#fff;font-size:0.65rem;font-weight:800;display:inline-grid;place-items:center;">${Math.min(notificationUnread, 99)}</span>` : ""}
+            <span class="topbar-label">Alerts</span>
+          </button>
           <button id="quick-add" class="primary" aria-label="Add item"><svg class="quick-add-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path d="M12 6C12.5523 6 13 6.44772 13 7V11H17C17.5523 11 18 11.4477 18 12C18 12.5523 17.5523 13 17 13H13V17C13 17.5523 12.5523 18 12 18C11.4477 18 11 17.5523 11 17V13H7C6.44772 13 6 12.5523 6 12C6 11.4477 6.44772 11 7 11H11V7C11 6.44772 11.4477 6 12 6Z" fill="#53c6ab"/><path fill-rule="evenodd" clip-rule="evenodd" d="M2 4.5C2 3.11929 3.11929 2 4.5 2H19.5C20.8807 2 22 3.11929 22 4.5V19.5C22 20.8807 20.8807 22 19.5 22H4.5C3.11929 22 2 20.8807 2 19.5V4.5ZM4.5 4C4.22386 4 4 4.22386 4 4.5V19.5C4 19.7761 4.22386 20 4.5 20H19.5C19.7761 20 20 19.7761 20 19.5V4.5C20 4.22386 19.7761 4 19.5 4H4.5Z" fill="#53c6ab"/></svg><span class="topbar-label">Add item</span></button>
           <button id="switch-profile" class="ghost" aria-label="Switch profile"><svg class="switch-profile-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path d="M18.7153 1.71609C18.3241 1.32351 18.3241 0.687013 18.7153 0.294434C19.1066 -0.0981448 19.7409 -0.0981448 20.1321 0.294434L22.4038 2.57397L22.417 2.58733C23.1935 3.37241 23.1917 4.64056 22.4116 5.42342L20.1371 7.70575C19.7461 8.09808 19.1122 8.09808 18.7213 7.70575C18.3303 7.31342 18.3303 6.67733 18.7213 6.285L20.0018 5L4.99998 5C4.4477 5 3.99998 5.44772 3.99998 6V13C3.99998 13.5523 3.55227 14 2.99998 14C2.4477 14 1.99998 13.5523 1.99998 13V6C1.99998 4.34315 3.34313 3 4.99998 3H19.9948L18.7153 1.71609Z" fill="#43dfc5"/><path d="M22 11C22 10.4477 21.5523 10 21 10C20.4477 10 20 10.4477 20 11V18C20 18.5523 19.5523 19 19 19L4.00264 19L5.28213 17.7161C5.67335 17.3235 5.67335 16.687 5.28212 16.2944C4.8909 15.9019 4.2566 15.9019 3.86537 16.2944L1.59369 18.574L1.58051 18.5873C0.803938 19.3724 0.805727 20.6406 1.58588 21.4234L3.86035 23.7058C4.25133 24.0981 4.88523 24.0981 5.2762 23.7058C5.66718 23.3134 5.66718 22.6773 5.2762 22.285L3.99563 21L19 21C20.6568 21 22 19.6569 22 18L22 11Z" fill="#43dfc5"/></svg><span class="topbar-label">Switch</span></button>
           <button id="open-profile" class="profile-trigger" aria-label="Open profile">
@@ -279,6 +346,7 @@ function shellLayout(content, route) {
           </button>
         </div>
       </header>
+      ${notificationPanel}
       <main class="page">${expiryBanner}${content}</main>
       ${pageAction}
       <nav class="bottom-nav">
@@ -912,6 +980,10 @@ export function renderSettings() {
   const state = getState();
   return shellLayout(
     `
+    <div class="row space" style="margin-bottom:10px;">
+      <h1 style="margin:0;">Settings</h1>
+      <span id="sync-indicator" class="sync-indicator" data-state="idle">Sync idle</span>
+    </div>
     <section class="section-card" style="margin-top:10px;">
       <h2 style="margin:0 0 8px 0;">Inventory Preferences</h2>
       <p class="help">These settings apply only to the currently selected inventory space.</p>
@@ -920,22 +992,47 @@ export function renderSettings() {
           <span class="help">Inventory space name</span>
           <input id="prefs-home" value="${escapeHtml(state.prefs.home_name)}" maxlength="30" />
         </label>
-        <label>
-          <span class="help">Delete marker retention (days)</span>
-          <input id="prefs-tombstone-days" type="number" min="1" max="365" step="1" value="${Number(
-            state.prefs.item_tombstone_retention_days || 30
-          )}" />
-          <span class="help">Higher values improve cross-device delete reliability; lower values reduce sync data size.</span>
-        </label>
+        <section class="section-card" style="padding:10px;">
+          <h2 style="margin:0 0 8px 0;">Notification Preferences</h2>
+          <p class="help" style="margin-bottom:8px;">Choose which inventory signals should appear in your alert center.</p>
+          <div class="grid">
+            <label class="row" style="gap:8px;justify-content:flex-start;">
+              <input id="prefs-notify-expiry-enabled" type="checkbox" style="width:auto;" ${
+                state.prefs.notification_expiry_enabled !== false ? "checked" : ""
+              } />
+              <span class="help" style="margin:0;">Expiry alerts</span>
+            </label>
+            <label>
+              <span class="help">Expiry "soon" window (days)</span>
+              <input id="prefs-notify-expiry-soon-days" type="number" min="1" max="60" step="1" value="${Number(
+                state.prefs.notification_expiry_soon_days || 7
+              )}" />
+            </label>
+            <label class="row" style="gap:8px;justify-content:flex-start;">
+              <input id="prefs-notify-stock-enabled" type="checkbox" style="width:auto;" ${
+                state.prefs.notification_stock_enabled !== false ? "checked" : ""
+              } />
+              <span class="help" style="margin:0;">Low stock alerts</span>
+            </label>
+            <label class="row" style="gap:8px;justify-content:flex-start;">
+              <input id="prefs-notify-wear-enabled" type="checkbox" style="width:auto;" ${
+                state.prefs.notification_wear_enabled !== false ? "checked" : ""
+              } />
+              <span class="help" style="margin:0;">Wear replacement alerts</span>
+            </label>
+            <label class="row" style="gap:8px;justify-content:flex-start;">
+              <input id="prefs-notify-restock-enabled" type="checkbox" style="width:auto;" ${
+                state.prefs.notification_restock_enabled !== false ? "checked" : ""
+              } />
+              <span class="help" style="margin:0;">Restock queue summary alerts</span>
+            </label>
+          </div>
+        </section>
         <button id="save-prefs" class="primary">Save Inventory Preferences</button>
       </div>
     </section>
 
     <section class="section-card" style="margin-top:10px;">
-      <div class="row space" style="margin-bottom:8px;">
-        <h1 style="margin:0;">Settings</h1>
-        <span id="sync-indicator" class="sync-indicator" data-state="idle">Sync idle</span>
-      </div>
       <div class="row space" style="margin-bottom:8px;">
         <h2 style="margin:0;">Categories</h2>
         <button id="add-category">Add Category</button>

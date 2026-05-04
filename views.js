@@ -418,6 +418,10 @@ export function renderSettings() {
   const state = getState();
   return shellLayout(
     `
+    <div class="row space" style="margin-bottom:10px;">
+      <h1 style="margin:0;">Settings</h1>
+      <span id="sync-indicator" class="sync-indicator" data-state="idle">Sync idle</span>
+    </div>
     <section class="section-card" style="margin-top:10px;">
       <h2 style="margin:0 0 8px 0;">Inventory Preferences</h2>
       <p class="help">These settings apply only to the currently selected inventory space.</p>
@@ -426,22 +430,11 @@ export function renderSettings() {
           <span class="help">Inventory space name</span>
           <input id="prefs-home" value="${escapeHtml(state.prefs.home_name)}" maxlength="30" />
         </label>
-        <label>
-          <span class="help">Delete marker retention (days)</span>
-          <input id="prefs-tombstone-days" type="number" min="1" max="365" step="1" value="${Number(
-            state.prefs.item_tombstone_retention_days || 30
-          )}" />
-          <span class="help">Higher values improve cross-device delete reliability; lower values reduce sync data size.</span>
-        </label>
         <button id="save-prefs" class="primary">Save Inventory Preferences</button>
       </div>
     </section>
 
     <section class="section-card" style="margin-top:10px;">
-      <div class="row space" style="margin-bottom:8px;">
-        <h1 style="margin:0;">Settings</h1>
-        <span id="sync-indicator" class="sync-indicator" data-state="idle">Sync idle</span>
-      </div>
       <div class="row space" style="margin-bottom:8px;">
         <h2 style="margin:0;">Categories</h2>
         <button id="add-category">Add Category</button>
