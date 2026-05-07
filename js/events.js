@@ -10,8 +10,11 @@ import { getHashParams, getRoute, setRoute } from "./router.js";
 import {
   STOCK_LEVELS,
   buildUnitStockLevels,
+  escapeAttr,
+  escapeHtml,
   getItemQuantity,
   getItemStockLevel,
+  getItemStockPercentage,
   getItemUnitStockLevels,
   isLowStockLevel,
   normalizeItemQuantity,
@@ -553,6 +556,476 @@ function closeRestockPurchasePrompt() {
   if (document.body) {
     document.body.classList.remove("quick-edit-open");
   }
+}
+
+const CHECK_INVENTORY_MODAL_ID = "norder-check-inventory";
+let checkInventoryKeydownHandler = null;
+let addItemKeydownHandler = null;
+
+function _addItemBackdropClick(e) {
+  if (e.target === e.currentTarget) toggleForm(false);
+}
+
+function closeInventoryCheck() {
+  const modal = document.getElementById(CHECK_INVENTORY_MODAL_ID);
+  if (modal && modal.parentNode) {
+    modal.parentNode.removeChild(modal);
+  }
+  if (checkInventoryKeydownHandler) {
+    document.removeEventListener("keydown", checkInventoryKeydownHandler);
+    checkInventoryKeydownHandler = null;
+  }
+  if (document.body) {
+    document.body.classList.remove("quick-edit-open");
+  }
+}
+
+function openInventoryCheck(onRender) {
+  if (typeof document === "undefined") return;
+  closeInventoryCheck();
+
+  const state = getState();
+  const items = [...state.items];
+  if (!items.length) {
+    alert("No inventory items to check.");
+    return;
+  }
+
+  const catColorMap = {};
+  (state.categories || []).forEach((c) => { catColorMap[c.name] = c.color || ""; });
+
+  let currentIndex = 0;
+  let skippedCount = 0;
+  let savedCount = 0;
+  const pendingChanges = {};
+
+  const overlay = document.createElement("div");
+  overlay.id = CHECK_INVENTORY_MODAL_ID;
+  overlay.className = "quick-edit-overlay";
+  overlay.style.cssText = "align-items: center;";
+  overlay.innerHTML = `
+    <section class="inv-check-sheet" role="dialog" aria-modal="true" aria-labelledby="inv-check-dialog-title">
+      <div class="inv-check-header">
+        <div class="inv-check-header-left">
+          <div class="inv-check-kicker">&#9776; Inventory Check</div>
+          <h2 id="inv-check-dialog-title" class="inv-check-title">Review Your Items</h2>
+        </div>
+        <button type="button" class="ghost" data-role="inv-check-exit" aria-label="Exit inventory check">Exit</button>
+      </div>
+      <div class="inv-check-progress-wrap">
+        <div class="inv-check-progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${items.length}" aria-valuenow="0">
+          <span style="width:0%"></span>
+        </div>
+        <div class="inv-check-progress-label">
+          <span data-role="inv-check-progress-text">Item 1 of ${items.length}</span>
+          <span class="inv-check-progress-badge" data-role="inv-check-badge">${items.length} to review</span>
+        </div>
+      </div>
+      <div class="inv-check-body" data-role="inv-check-body"></div>
+      <div class="inv-check-nav" data-role="inv-check-nav">
+        <button type="button" class="ghost" data-role="inv-check-back" disabled>&#8592; Back</button>
+        <span class="inv-check-nav-hint" data-role="inv-check-hint">Enter to save &amp; next &bull; Esc to exit</span>
+        <div style="display:flex;gap:8px;">
+          <button type="button" class="ghost" data-role="inv-check-skip">Skip &#8594;</button>
+          <button type="button" class="primary" data-role="inv-check-save">Save &amp; Next &#8594;</button>
+        </div>
+      </div>
+    </section>
+  `;
+
+  document.body.appendChild(overlay);
+  document.body.classList.add("quick-edit-open");
+
+  const body = overlay.querySelector("[data-role='inv-check-body']");
+  const progressBar = overlay.querySelector(".inv-check-progress-bar > span");
+  const progressText = overlay.querySelector("[data-role='inv-check-progress-text']");
+  const progressBadge = overlay.querySelector("[data-role='inv-check-badge']");
+  const nav = overlay.querySelector("[data-role='inv-check-nav']");
+
+  function getItemFieldValues() {
+    const stockSel = body.querySelector("[data-role='inv-check-stock']");
+    const wearSel = body.querySelector("[data-role='inv-check-wear']");
+    const expInput = body.querySelector("[data-role='inv-check-expiry']");
+    const qtyInput = body.querySelector("[data-role='inv-check-qty']");
+    const nameInput = body.querySelector("[data-role='inv-check-name']");
+    const brandInput = body.querySelector("[data-role='inv-check-brand']");
+    const catSel = body.querySelector("[data-role='inv-check-category']");
+    return {
+      stock_level: stockSel ? stockSel.value : null,
+      wear_level: wearSel ? wearSel.value : null,
+      expiry_date: expInput ? expInput.value : null,
+      quantity: qtyInput ? normalizeItemQuantity(qtyInput.value) : null,
+      name: nameInput ? String(nameInput.value || "").trim() : null,
+      brand_name: brandInput ? String(brandInput.value || "").trim() : null,
+      category: catSel ? catSel.value : null,
+    };
+  }
+
+  function updateProgress(index) {
+    const pct = items.length > 0 ? Math.round(((index + 1) / items.length) * 100) : 0;
+    if (progressBar) progressBar.style.width = pct + "%";
+    const progressBarEl = overlay.querySelector(".inv-check-progress-bar");
+    if (progressBarEl) progressBarEl.setAttribute("aria-valuenow", String(index));
+    if (progressText) progressText.textContent = `Item ${Math.min(index + 1, items.length)} of ${items.length}`;
+    const remaining = items.length - index;
+    if (progressBadge) {
+      progressBadge.textContent = remaining > 0 ? `${remaining} remaining` : "Done!";
+    }
+  }
+
+  function renderCurrentItem(animateIn = true) {
+    const item = items[currentIndex];
+    if (!item) return;
+
+    const catColor = catColorMap[item.category] || "";
+    const wear = getItemWearAndTear(item);
+    const stockPct = getItemStockPercentage(item);
+    const wearPct = wear.enabled ? wear.percentage : 0;
+    const isReplace = wear.enabled && wear.percentage >= 100;
+    const categories = (state.categories || []).map((c) => c.name);
+    const quantity = getItemQuantity(item);
+    const pending = pendingChanges[item.id] || {};
+
+    const currentName = pending.name !== undefined ? pending.name : (item.name || "");
+    const currentBrand = pending.brand_name !== undefined ? pending.brand_name : (item.brand_name || "");
+    const currentStock = pending.stock_level !== undefined ? pending.stock_level : getItemStockLevel(item);
+    const currentWear = pending.wear_level !== undefined ? pending.wear_level : (wear.level || "Moderate");
+    const currentExpiry = pending.expiry_date !== undefined ? pending.expiry_date : (item.expiry_date || "");
+    const currentQty = pending.quantity !== undefined ? pending.quantity : quantity;
+    const currentCat = pending.category !== undefined ? pending.category : (item.category || "");
+
+    const barClass = wear.enabled ? (isReplace ? "wear-replace" : "wear") : "";
+    const barPct = wear.enabled ? wearPct : stockPct;
+    const barLabel = wear.enabled ? `Wear: ${wear.level}` : `Stock: ${getItemStockLevel(item)}`;
+    const wearEnabled = wear.enabled;
+
+    const html = `
+      <div class="inv-check-card" style="--inv-check-cat-color:${catColor || "var(--primary)"};">
+        <div>
+          <div class="inv-check-item-name">${escapeHtml(item.name)}</div>
+          <div class="inv-check-item-meta">
+            <span class="badge">${escapeHtml(item.category)}</span>
+            ${item.brand_name ? `<span class="badge">${escapeHtml(item.brand_name)}</span>` : ""}
+            ${item.container_type ? `<span class="badge">${escapeHtml(item.container_type)}</span>` : ""}
+            ${item.expiry_date ? `<span class="help" style="font-size:0.74rem;">Exp: ${escapeHtml(item.expiry_date)}</span>` : ""}
+          </div>
+        </div>
+        <div class="inv-check-status-bar-wrap">
+          <div class="inv-check-status-bar-label">
+            <span>${escapeHtml(barLabel)}</span>
+            <span>${barPct}%</span>
+          </div>
+          <div class="inv-check-status-bar ${barClass}">
+            <span style="width:${barPct}%"></span>
+          </div>
+        </div>
+        <div class="inv-check-fields">
+          <div class="inv-check-fields-row">
+            <label class="field" for="inv-check-name-input">
+              <span class="field-label">Item name</span>
+              <input id="inv-check-name-input" data-role="inv-check-name" maxlength="50" value="${escapeAttr(currentName)}" />
+            </label>
+            <label class="field" for="inv-check-brand-input">
+              <span class="field-label">Brand (optional)</span>
+              <input id="inv-check-brand-input" data-role="inv-check-brand" maxlength="50" value="${escapeAttr(currentBrand)}" />
+            </label>
+          </div>
+          <div class="inv-check-fields-row">
+            <label class="field" for="inv-check-category-sel">
+              <span class="field-label">Category</span>
+              <select id="inv-check-category-sel" data-role="inv-check-category">
+                ${categories.map((c) => `<option${c === currentCat ? " selected" : ""}>${escapeHtml(c)}</option>`).join("")}
+              </select>
+            </label>
+            <label class="field" for="inv-check-qty-input">
+              <span class="field-label">Quantity</span>
+              <input id="inv-check-qty-input" data-role="inv-check-qty" type="number" min="1" max="24" value="${currentQty}" />
+            </label>
+          </div>
+          ${
+            !wearEnabled
+              ? `<label class="field" for="inv-check-stock-sel">
+              <span class="field-label">Stock level</span>
+              <select id="inv-check-stock-sel" data-role="inv-check-stock">
+                ${STOCK_LEVELS.map((l) => `<option${l === currentStock ? " selected" : ""}>${escapeHtml(l)}</option>`).join("")}
+              </select>
+            </label>`
+              : ""
+          }
+          ${
+            wearEnabled
+              ? `<label class="field" for="inv-check-wear-sel">
+              <span class="field-label">Wear level</span>
+              <select id="inv-check-wear-sel" data-role="inv-check-wear">
+                ${WEAR_LEVELS.map((l) => `<option${l === currentWear ? " selected" : ""}>${escapeHtml(l)}</option>`).join("")}
+              </select>
+            </label>`
+              : ""
+          }
+          <label class="field" for="inv-check-expiry-input">
+            <span class="field-label">Expiry date</span>
+            <input id="inv-check-expiry-input" data-role="inv-check-expiry" type="date" value="${escapeAttr(currentExpiry)}" style="max-width:180px;" />
+          </label>
+        </div>
+      </div>
+    `;
+
+    body.innerHTML = html;
+    if (animateIn) {
+      const card = body.querySelector(".inv-check-card");
+      if (card) {
+        card.style.animation = "none";
+        card.style.opacity = "0";
+        card.style.transform = "translateY(12px) scale(0.98)";
+        requestAnimationFrame(() => {
+          card.style.animation = "";
+          card.style.opacity = "";
+          card.style.transform = "";
+        });
+      }
+    }
+
+    updateProgress(currentIndex);
+
+    const backBtn = overlay.querySelector("[data-role='inv-check-back']");
+    if (backBtn) backBtn.disabled = currentIndex === 0;
+
+    const firstInput = body.querySelector("input, select");
+    if (firstInput) firstInput.focus();
+  }
+
+  function commitSave() {
+    const item = items[currentIndex];
+    if (!item) return;
+
+    const vals = getItemFieldValues();
+    const name = vals.name;
+    if (!name) {
+      const nameInput = body.querySelector("[data-role='inv-check-name']");
+      if (nameInput) nameInput.focus();
+      return false;
+    }
+
+    const wearEnabled = getItemWearAndTear(item).enabled;
+    const stockLevel = !wearEnabled ? normalizeStockLevel(vals.stock_level, 50) : getItemStockLevel(item);
+    const wearLevel = wearEnabled ? normalizeWearLevel(vals.wear_level || "") : "";
+    const qty = vals.quantity || getItemQuantity(item);
+    const expiry = vals.expiry_date !== null ? vals.expiry_date : (item.expiry_date || "");
+
+    pendingChanges[item.id] = {
+      name,
+      brand_name: vals.brand_name !== null ? vals.brand_name : (item.brand_name || ""),
+      category: vals.category || item.category,
+      stock_level: stockLevel,
+      wear_level: wearLevel,
+      expiry_date: expiry,
+      quantity: qty,
+    };
+    savedCount++;
+    return true;
+  }
+
+  function applyAllAndClose() {
+    const next = deepClone(getState());
+    let changedCount = 0;
+
+    next.items = next.items.map((item) => {
+      const changes = pendingChanges[item.id];
+      if (!changes) return item;
+      changedCount++;
+
+      const wearEnabled = item.wear_and_tear_enabled;
+      const newQty = normalizeItemQuantity(changes.quantity);
+      const newWearLevel = wearEnabled ? normalizeWearLevel(changes.wear_level || "") : "";
+      const newWearPct = wearEnabled ? getWearPercentageForLevel(newWearLevel) : 0;
+      const newStockLevel = !wearEnabled ? normalizeStockLevel(changes.stock_level, 50) : "Full";
+      const newStockPct = !wearEnabled ? stockLevelToPercentage(newStockLevel) : 100;
+      const unitStockLevels = !wearEnabled && newQty > 1
+        ? buildUnitStockLevels(newQty, getItemUnitStockLevels(item), newStockLevel)
+        : [];
+      const unitWearLevels = wearEnabled && newQty > 1
+        ? buildUnitWearLevels(newQty, getItemUnitWearLevels(item), newWearLevel)
+        : [];
+      const shouldRestock = wearEnabled
+        ? isReplaceWorthyWear(true, newWearLevel, newWearPct)
+        : isLowStockLevel(newStockLevel);
+
+      return {
+        ...item,
+        name: changes.name,
+        brand_name: changes.brand_name,
+        category: changes.category,
+        stock_level: newStockLevel,
+        percentage: newStockPct,
+        unit_stock_levels: unitStockLevels,
+        wear_level: newWearLevel,
+        wear_percentage: newWearPct,
+        wear_unit_levels: unitWearLevels,
+        expiry_date: changes.expiry_date,
+        quantity: newQty,
+        in_shopping_list: shouldRestock,
+        updated_date: Date.now(),
+      };
+    });
+
+    setState(next);
+    saveState();
+
+    if (changedCount > 0) {
+      trackInventoryChange("bulk_inventory_check", `Inventory check completed: ${changedCount} item(s) updated`, {
+        updated_count: changedCount,
+        skipped_count: skippedCount,
+      });
+    }
+
+    onRender();
+    if (changedCount > 0) {
+      showSaveNotification(`Inventory check done. ${changedCount} item${changedCount === 1 ? "" : "s"} updated.`);
+    }
+  }
+
+  function showCompletionScreen() {
+    if (progressBar) progressBar.style.width = "100%";
+    if (progressText) progressText.textContent = `All ${items.length} items reviewed`;
+    if (progressBadge) progressBadge.textContent = "Complete!";
+
+    body.innerHTML = `
+      <div class="inv-check-complete">
+        <div class="inv-check-complete-icon">&#127942;</div>
+        <h3 class="inv-check-complete-title">Inventory Check Complete!</h3>
+        <p class="inv-check-complete-copy">You've reviewed all ${items.length} item${items.length === 1 ? "" : "s"} in this inventory space.</p>
+        <div class="inv-check-complete-stats">
+          <div class="inv-check-stat-card">
+            <div class="inv-check-stat-number">${items.length}</div>
+            <div class="inv-check-stat-label">Total</div>
+          </div>
+          <div class="inv-check-stat-card">
+            <div class="inv-check-stat-number">${savedCount}</div>
+            <div class="inv-check-stat-label">Saved</div>
+          </div>
+          <div class="inv-check-stat-card">
+            <div class="inv-check-stat-number">${skippedCount}</div>
+            <div class="inv-check-stat-label">Skipped</div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    if (nav) {
+      nav.innerHTML = `
+        <span></span>
+        <span class="inv-check-nav-hint">Changes have been saved to your inventory.</span>
+        <button type="button" class="primary" data-role="inv-check-done">Close &amp; Apply</button>
+      `;
+      const doneBtn = nav.querySelector("[data-role='inv-check-done']");
+      if (doneBtn) {
+        doneBtn.addEventListener("click", () => {
+          applyAllAndClose();
+          closeInventoryCheck();
+        });
+      }
+    }
+  }
+
+  function goToNext(wasSaved) {
+    if (wasSaved) {
+      const card = body.querySelector(".inv-check-card");
+      if (card) {
+        card.classList.add("inv-check-card-exit");
+        setTimeout(() => {
+          currentIndex++;
+          if (currentIndex >= items.length) {
+            showCompletionScreen();
+          } else {
+            renderCurrentItem(true);
+          }
+        }, 150);
+      } else {
+        currentIndex++;
+        if (currentIndex >= items.length) {
+          showCompletionScreen();
+        } else {
+          renderCurrentItem(true);
+        }
+      }
+    } else {
+      currentIndex++;
+      if (currentIndex >= items.length) {
+        showCompletionScreen();
+      } else {
+        renderCurrentItem(true);
+      }
+    }
+  }
+
+  overlay.addEventListener("click", (e) => {
+    const role = e.target.closest("[data-role]")?.getAttribute("data-role");
+    if (e.target === overlay) {
+      closeInventoryCheck();
+      return;
+    }
+    if (role === "inv-check-exit") {
+      closeInventoryCheck();
+      return;
+    }
+    if (role === "inv-check-save") {
+      const saved = commitSave();
+      if (saved === false) return;
+      goToNext(true);
+      return;
+    }
+    if (role === "inv-check-skip") {
+      skippedCount++;
+      goToNext(false);
+      return;
+    }
+    if (role === "inv-check-back") {
+      if (currentIndex > 0) {
+        currentIndex--;
+        renderCurrentItem(true);
+      }
+      return;
+    }
+  });
+
+  checkInventoryKeydownHandler = (e) => {
+    const tag = document.activeElement && document.activeElement.tagName;
+    if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") {
+      if (e.key === "Enter" && tag !== "TEXTAREA") {
+        e.preventDefault();
+        const saveBtn = overlay.querySelector("[data-role='inv-check-save']");
+        if (saveBtn && !saveBtn.hidden) saveBtn.click();
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeInventoryCheck();
+      }
+      return;
+    }
+    if (e.key === "Escape") {
+      e.preventDefault();
+      closeInventoryCheck();
+    }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const saveBtn = overlay.querySelector("[data-role='inv-check-save']");
+      if (saveBtn && !saveBtn.hidden) saveBtn.click();
+    }
+    if (e.key === "ArrowRight") {
+      e.preventDefault();
+      const skipBtn = overlay.querySelector("[data-role='inv-check-skip']");
+      if (skipBtn && !skipBtn.hidden) skipBtn.click();
+    }
+    if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      const backBtn = overlay.querySelector("[data-role='inv-check-back']");
+      if (backBtn && !backBtn.disabled && !backBtn.hidden) backBtn.click();
+    }
+  };
+
+  document.addEventListener("keydown", checkInventoryKeydownHandler);
+
+  renderCurrentItem(false);
 }
 
 function askRestockPurchaseDetails(items) {
@@ -2035,9 +2508,17 @@ export function wireSharedEvents(onRender) {
 
   const saveItemBtn = document.getElementById("save-item");
   if (saveItemBtn) saveItemBtn.addEventListener("click", () => {
-    saveInventoryItem();
-    onRender();
+    const saved = saveInventoryItem();
+    if (saved) {
+      toggleForm(false);
+      onRender();
+    }
   });
+
+  const addItemCloseBtn = document.querySelector("[data-role='add-item-close']");
+  if (addItemCloseBtn) addItemCloseBtn.addEventListener("click", () => toggleForm(false));
+  const addItemCancelBtn = document.querySelector("[data-role='add-item-cancel']");
+  if (addItemCancelBtn) addItemCancelBtn.addEventListener("click", () => toggleForm(false));
 
   const quantityInput = document.getElementById("item-quantity");
   if (quantityInput) {
@@ -2089,6 +2570,9 @@ export function wireSharedEvents(onRender) {
 
   const toggleFormBtn = document.getElementById("toggle-item-form");
   if (toggleFormBtn) toggleFormBtn.addEventListener("click", () => toggleForm());
+
+  const checkInventoryBtn = document.getElementById("check-inventory-btn");
+  if (checkInventoryBtn) checkInventoryBtn.addEventListener("click", () => openInventoryCheck(onRender));
 
   const savePrefsBtn = document.getElementById("save-prefs");
   if (savePrefsBtn) savePrefsBtn.addEventListener("click", () => {
@@ -2521,6 +3005,23 @@ function toggleForm(open) {
   if (!panel) return;
   const forceOpen = typeof open === "boolean" ? open : !panel.classList.contains("open");
   panel.classList.toggle("open", forceOpen);
+
+  if (forceOpen) {
+    const titleEl = document.getElementById("add-item-modal-title");
+    const saveBtn = document.getElementById("save-item");
+    const isEdit = saveBtn && saveBtn.getAttribute("data-edit-id");
+    if (titleEl) titleEl.textContent = isEdit ? "Edit Item" : "Add New Item";
+    if (addItemKeydownHandler) document.removeEventListener("keydown", addItemKeydownHandler);
+    addItemKeydownHandler = (e) => { if (e.key === "Escape") toggleForm(false); };
+    document.addEventListener("keydown", addItemKeydownHandler);
+    panel.addEventListener("click", _addItemBackdropClick);
+  } else {
+    if (addItemKeydownHandler) {
+      document.removeEventListener("keydown", addItemKeydownHandler);
+      addItemKeydownHandler = null;
+    }
+    panel.removeEventListener("click", _addItemBackdropClick);
+  }
 }
 
 function fillItemForm(item) {
@@ -2602,7 +3103,7 @@ function saveInventoryItem() {
 
   if (!name) {
     alert("Please add an item name.");
-    return;
+    return false;
   }
 
   const state = getState();
@@ -2690,6 +3191,7 @@ function saveInventoryItem() {
 
   setState(next);
   saveState();
+  return true;
 }
 
 function saveInventoryPrefs() {

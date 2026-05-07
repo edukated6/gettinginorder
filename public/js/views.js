@@ -714,8 +714,12 @@ export function renderInventory() {
   return shellLayout(
     `
     <section class="section-card">
-      <div class="row space inventory-title-row" style="margin-bottom:8px;">
-        <h1>Inventory Workspace</h1>
+      <div class="row inventory-title-row" style="margin-bottom:8px;">
+        <h1>Inventory<br class="inv-title-break"> Workspace</h1>
+        <button id="check-inventory-btn" class="inv-check-trigger" aria-label="Check all inventory items" title="Check Inventory">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path fill-rule="evenodd" clip-rule="evenodd" d="M2 4.5C2 3.11929 3.11929 2 4.5 2H19.5C20.8807 2 22 3.11929 22 4.5V19.5C22 20.8807 20.8807 22 19.5 22H4.5C3.11929 22 2 20.8807 2 19.5V4.5ZM4.5 4C4.22386 4 4 4.22386 4 4.5V19.5C4 19.7761 4.22386 20 4.5 20H19.5C19.7761 20 20 19.7761 20 19.5V4.5C20 4.22386 19.7761 4 19.5 4H4.5Z" fill="currentColor"/></svg>
+          Check Inventory
+        </button>
         <button id="toggle-item-form" aria-label="Add new item" title="Add New"><svg class="quick-add-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path d="M12 6C12.5523 6 13 6.44772 13 7V11H17C17.5523 11 18 11.4477 18 12C18 12.5523 17.5523 13 17 13H13V17C13 17.5523 12.5523 18 12 18C11.4477 18 11 17.5523 11 17V13H7C6.44772 13 6 12.5523 6 12C6 11.4477 6.44772 11 7 11H11V7C11 6.44772 11.4477 6 12 6Z" fill="#53c6ab"/><path fill-rule="evenodd" clip-rule="evenodd" d="M2 4.5C2 3.11929 3.11929 2 4.5 2H19.5C20.8807 2 22 3.11929 22 4.5V19.5C22 20.8807 20.8807 22 19.5 22H4.5C3.11929 22 2 20.8807 2 19.5V4.5ZM4.5 4C4.22386 4 4 4.22386 4 4.5V19.5C4 19.7761 4.22386 20 4.5 20H19.5C19.7761 20 20 19.7761 20 19.5V4.5C20 4.22386 19.7761 4 19.5 4H4.5Z" fill="#53c6ab"/></svg></button>
       </div>
 
@@ -756,65 +760,83 @@ export function renderInventory() {
       </div>
           <p id="inventory-filtering" class="inventory-filtering" aria-live="polite">Filtering...</p>
 
-      <div id="item-form" class="dialog">
-        <div class="grid">
-          <label class="field" for="item-name">
-            <span class="field-label">Item name</span>
-            <input id="item-name" placeholder="e.g. Coffee Beans or Printer Paper" maxlength="50" />
-          </label>
-          <label class="field" for="item-brand">
-            <span class="field-label">Brand name (optional)</span>
-            <input id="item-brand" placeholder="e.g. Lavazza or HP" maxlength="50" />
-          </label>
-          <label class="field" for="item-category">
-            <span class="field-label">Category</span>
-            <select id="item-category">
-              ${state.categories.map((c) => `<option>${escapeHtml(c.name)}</option>`).join("")}
-            </select>
-          </label>
-          <label class="field" for="item-stock-level">
-            <span class="field-label">Stock level</span>
-            <select id="item-stock-level" aria-describedby="item-stock-level-note">
-              ${STOCK_LEVELS.map((level) => `<option>${escapeHtml(level)}</option>`).join("")}
-            </select>
-            <span id="item-stock-level-note" class="help" style="display:none;margin-top:4px;">Disabled because stock is controlled elsewhere for this item.</span>
-          </label>
-          <div class="row form-row-two">
-            <label class="field" for="item-container-type">
-              <span class="field-label">Container (optional)</span>
-              <select id="item-container-type">
-                <option value="">None</option>
-                <option>Bottle</option>
-                <option>Can</option>
-                <option>Bag</option>
-                <option>Box</option>
-              </select>
-            </label>
-            <label class="field" for="item-quantity">
-              <span class="field-label">Quantity</span>
-              <input id="item-quantity" type="number" min="1" max="24" value="1" />
-            </label>
+      <div id="item-form" class="add-item-overlay" role="dialog" aria-modal="true" aria-labelledby="add-item-modal-title">
+        <div class="inv-check-sheet add-item-sheet">
+          <div class="inv-check-header">
+            <div class="inv-check-header-left">
+              <span class="inv-check-kicker">Inventory</span>
+              <h2 class="inv-check-title" id="add-item-modal-title">Add New Item</h2>
+            </div>
+            <button class="icon-btn" data-role="add-item-close" aria-label="Close" title="Close">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+            </button>
           </div>
-          <label class="field" for="item-enable-wear-and-tear">
-            <span class="field-label">Wear and tear (optional)</span>
-            <label class="row" style="gap:8px;align-items:center;justify-content:flex-start;margin:0;">
-              <input id="item-enable-wear-and-tear" type="checkbox" style="width:auto;" />
-              <span class="help" style="margin:0;">This item needs wear-and-tear tracking</span>
-            </label>
-          </label>
-          <label id="item-wear-and-tear-config" class="field" for="item-wear-and-tear-level" style="display:none;">
-            <span class="field-label">Wear level</span>
-            <select id="item-wear-and-tear-level">
-              ${WEAR_LEVELS.map((level) => `<option>${escapeHtml(level)}</option>`).join("")}
-            </select>
-          </label>
-          <div id="item-unit-wear-levels" class="unit-level-wrap"></div>
-          <div id="item-unit-stock-levels" class="unit-level-wrap"></div>
-          <label class="field" for="item-expiry">
-            <span class="field-label">Expiry date</span>
-            <input id="item-expiry" type="date" />
-          </label>
-          <button id="save-item" class="primary">Save Inventory Item</button>
+          <div class="inv-check-body add-item-body">
+            <div class="inv-check-fields">
+              <label class="field" for="item-name">
+                <span class="field-label">Item name</span>
+                <input id="item-name" placeholder="e.g. Coffee Beans or Printer Paper" maxlength="50" />
+              </label>
+              <div class="inv-check-fields-row">
+                <label class="field" for="item-brand">
+                  <span class="field-label">Brand (optional)</span>
+                  <input id="item-brand" placeholder="e.g. Lavazza or HP" maxlength="50" />
+                </label>
+                <label class="field" for="item-category">
+                  <span class="field-label">Category</span>
+                  <select id="item-category">
+                    ${state.categories.map((c) => `<option>${escapeHtml(c.name)}</option>`).join("")}
+                  </select>
+                </label>
+              </div>
+              <label class="field" for="item-stock-level">
+                <span class="field-label">Stock level</span>
+                <select id="item-stock-level" aria-describedby="item-stock-level-note">
+                  ${STOCK_LEVELS.map((level) => `<option>${escapeHtml(level)}</option>`).join("")}
+                </select>
+                <span id="item-stock-level-note" class="help" style="display:none;margin-top:4px;">Disabled because stock is controlled elsewhere for this item.</span>
+              </label>
+              <div class="inv-check-fields-row">
+                <label class="field" for="item-container-type">
+                  <span class="field-label">Container (optional)</span>
+                  <select id="item-container-type">
+                    <option value="">None</option>
+                    <option>Bottle</option>
+                    <option>Can</option>
+                    <option>Bag</option>
+                    <option>Box</option>
+                  </select>
+                </label>
+                <label class="field" for="item-quantity">
+                  <span class="field-label">Quantity</span>
+                  <input id="item-quantity" type="number" min="1" max="24" value="1" />
+                </label>
+              </div>
+              <label class="field" for="item-enable-wear-and-tear">
+                <span class="field-label">Wear and tear (optional)</span>
+                <label class="row" style="gap:8px;align-items:center;justify-content:flex-start;margin:0;">
+                  <input id="item-enable-wear-and-tear" type="checkbox" style="width:auto;" />
+                  <span class="help" style="margin:0;">This item needs wear-and-tear tracking</span>
+                </label>
+              </label>
+              <label id="item-wear-and-tear-config" class="field" for="item-wear-and-tear-level" style="display:none;">
+                <span class="field-label">Wear level</span>
+                <select id="item-wear-and-tear-level">
+                  ${WEAR_LEVELS.map((level) => `<option>${escapeHtml(level)}</option>`).join("")}
+                </select>
+              </label>
+              <div id="item-unit-wear-levels" class="unit-level-wrap"></div>
+              <div id="item-unit-stock-levels" class="unit-level-wrap"></div>
+              <label class="field" for="item-expiry">
+                <span class="field-label">Expiry date</span>
+                <input id="item-expiry" type="date" />
+              </label>
+            </div>
+          </div>
+          <div class="inv-check-nav">
+            <button class="ghost" data-role="add-item-cancel">Cancel</button>
+            <button id="save-item" class="primary">Save Item</button>
+          </div>
         </div>
       </div>
 
