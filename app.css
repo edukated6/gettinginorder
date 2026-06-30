@@ -173,6 +173,28 @@ body {
   line-height: 1;
 }
 
+.budget-launch-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  border: none;
+  background: transparent;
+  color: color-mix(in srgb, var(--primary) 76%, var(--text));
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+}
+
+.budget-launch-glyph {
+  width: auto;
+  height: auto;
+  display: inline-grid;
+  place-items: center;
+  font-size: 1.28rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
 .quick-add-icon,
 .switch-profile-icon,
 .logout-icon {

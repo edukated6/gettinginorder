@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#1f7a69" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./budget.css?v=20260629c" />
+    <title>nORDER Budget Tool</title>
+  </head>
+  <body>
+    <div class="budget-shell">
+      <header class="budget-header">
+        <div>
+          <p class="kicker">Finance</p>
+          <h1><span class="brand-n">n</span>ORDER Budget Tool</h1>
+          <p class="subtitle">Bills, services, and fast percentage math in one focused workspace.</p>
+          <p id="sync-status" class="sync-status" aria-live="polite">Sync: local only</p>
+        </div>
+        <a class="home-link" href="./index.html">Back to nORDER App</a>
+      </header>
+
+      <nav class="budget-tabs" aria-label="Budget tool pages">
+        <button class="tab active" data-page="dashboard" type="button">Dashboard</button>
+        <button class="tab" data-page="calculator" type="button">Calculator</button>
+        <button class="tab" data-page="bills" type="button">Bills Planner</button>
+      </nav>
+
+      <main>
+        <section id="page-dashboard" class="page active" aria-label="Budget dashboard">
+          <div class="card card-hero">
+            <div>
+              <h2>Monthly Snapshot</h2>
+              <p class="help">Set your income once, then track total expenses and service commitments.</p>
+            </div>
+            <label class="inline-field">
+              <span>Monthly income</span>
+              <input id="monthly-income" type="number" min="0" step="0.01" placeholder="0.00" />
+            </label>
+          </div>
+
+          <div class="stats-grid">
+            <article class="card stat">
+              <p>Total monthly expenses</p>
+              <strong id="stat-expenses">$0.00</strong>
+            </article>
+            <article class="card stat">
+              <p>Monthly services</p>
+              <strong id="stat-services">0</strong>
+            </article>
+            <article class="card stat">
+              <p>Remaining after bills</p>
+              <strong id="stat-remaining">$0.00</strong>
+            </article>
+            <article class="card stat">
+              <p>Due in 7 days</p>
+              <strong id="stat-due-soon">0</strong>
+            </article>
+          </div>
+
+          <div class="card">
+            <div class="section-title-row">
+              <h3>Monthly Due Calendar</h3>
+            </div>
+            <p class="help">See when bills hit this month and how much is due on each day.</p>
+            <div id="due-calendar" class="due-calendar" aria-label="Monthly due date calendar"></div>
+          </div>
+
+          <div class="card">
+            <div class="section-title-row">
+              <h3>Recent Activity</h3>
+              <button id="clear-activity" class="ghost" type="button">Clear Activity</button>
+            </div>
+            <ul id="activity-list" class="activity-list"></ul>
+          </div>
+
+          <div class="card">
+            <div class="section-title-row">
+              <h3>Backup and Import</h3>
+            </div>
+            <div class="backup-actions">
+              <button id="export-json" type="button">Export JSON</button>
+              <button id="export-csv" type="button">Export CSV</button>
+              <button id="import-file-trigger" type="button">Import JSON/CSV</button>
+              <input id="import-file" type="file" accept=".json,.csv,application/json,text/csv" hidden />
+            </div>
+            <p id="import-export-status" class="help"></p>
+          </div>
+        </section>
+
+        <section id="page-calculator" class="page" aria-label="Bill calculator">
+          <div class="card">
+            <h2>Quick Calculator</h2>
+            <p class="help">Use standard math for bill totals: +, -, *, /, parentheses.</p>
+            <div class="calc-row">
+              <input id="calc-expression" type="text" placeholder="Example: (220 + 85.99) * 1.08" />
+              <button id="calc-evaluate" class="primary" type="button">Calculate</button>
+            </div>
+            <p id="calc-result" class="calc-result">Result: $0.00</p>
+          </div>
+
+          <div class="percent-grid">
+            <article class="card">
+              <h3>Percent of a number</h3>
+              <div class="field-grid">
+                <input id="percent-value" type="number" placeholder="Percent" />
+                <input id="percent-base" type="number" placeholder="Base number" />
+                <button id="percent-of" type="button">Solve</button>
+              </div>
+              <p id="percent-of-result" class="help"></p>
+            </article>
+
+            <article class="card">
+              <h3>Add or remove a percent</h3>
+              <div class="field-grid">
+                <input id="adjust-base" type="number" placeholder="Base amount" />
+                <input id="adjust-percent" type="number" placeholder="Percent" />
+                <div class="row-buttons">
+                  <button id="adjust-add" type="button">Add %</button>
+                  <button id="adjust-subtract" type="button">Subtract %</button>
+                </div>
+              </div>
+              <p id="adjust-result" class="help"></p>
+            </article>
+
+            <article class="card">
+              <h3>What percent is A of B?</h3>
+              <div class="field-grid">
+                <input id="ratio-a" type="number" placeholder="A value" />
+                <input id="ratio-b" type="number" placeholder="B value" />
+                <button id="ratio-solve" type="button">Solve</button>
+              </div>
+              <p id="ratio-result" class="help"></p>
+            </article>
+          </div>
+        </section>
+
+        <section id="page-bills" class="page" aria-label="Bills manager">
+          <div class="card">
+            <h2>Add bill or service</h2>
+            <form id="bill-form" class="field-grid bill-form">
+              <input id="bill-name" required maxlength="60" placeholder="Name (Rent, Netflix, Water)" />
+              <input id="bill-amount" type="number" min="0" step="0.01" required placeholder="Monthly amount" />
+              <input id="bill-due-day" type="number" min="1" max="31" required placeholder="Due day (1-31)" />
+              <select id="bill-type">
+                <option value="bill">Bill</option>
+                <option value="service">Service</option>
+                <option value="subscription">Subscription</option>
+                <option value="debt">Debt</option>
+                <option value="other">Other</option>
+              </select>
+              <button class="primary" type="submit">Add Item</button>
+            </form>
+          </div>
+
+          <div class="card">
+            <div class="section-title-row">
+              <h3>Monthly Expense Regiment</h3>
+              <button id="clear-bills" class="ghost" type="button">Clear All</button>
+            </div>
+            <p class="help">Drag rows to reorder your monthly flow. You can also edit fields inline.</p>
+            <ul id="bills-list" class="bills-list"></ul>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+    <script type="module">
+      import { initializeFirebase } from "./js/firebase-config.js";
+      initializeFirebase().finally(() => {
+        window.dispatchEvent(new Event("norder:budget-firebase-ready"));
+      });
+    </script>
+    <script src="./budget.js?v=20260629c"></script>
+  </body>
+</html>

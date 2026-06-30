@@ -88,6 +88,10 @@ function createDefaults() {
       },
     ],
     item_tombstones: {},
+    budget: {
+      monthly_income: 0,
+      bills: [],
+    },
   };
 }
 
@@ -136,12 +140,19 @@ function normalizeStateShape(inputState, defaults = createDefaults()) {
     ...pickByTemplate(legacyPrefs, INVENTORY_PREF_DEFAULTS),
   };
 
+  const budget = {
+    monthly_income: 0,
+    bills: [],
+    ...(input.budget && typeof input.budget === "object" ? input.budget : {}),
+  };
+
   return {
     ...deepClone(defaults),
     ...input,
     account,
     inventory,
     prefs: composePrefs(account, inventory),
+    budget,
     categories: Array.isArray(input.categories) ? input.categories : deepClone(defaults.categories),
     categories_updated_at: toFiniteTimestamp(input.categories_updated_at),
     items: Array.isArray(input.items) ? input.items : deepClone(defaults.items),

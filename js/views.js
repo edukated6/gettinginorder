@@ -323,6 +323,9 @@ function shellLayout(content, route) {
           <div class="muted">${greeting}</div>
         </div>
         <div class="row">
+          <button type="button" class="ghost budget-launch-btn" onclick="window.location.href='budget.html'" aria-label="Open nORDER Budget Tool" title="Budget Tool">
+            <span class="budget-launch-glyph" aria-hidden="true">$</span><span class="topbar-label">Budget</span>
+          </button>
           <button id="open-tutorial" class="ghost" aria-label="Open beginner tutorial" title="Beginner tutorial">
             <span class="tutorial-trigger-glyph" aria-hidden="true">?</span><span class="topbar-label">Tutorial</span>
           </button>
@@ -391,6 +394,7 @@ export function renderOnboardingProfile(user) {
             </div>
           </label>
           <button id="complete-onboarding" class="primary">Save and Continue</button>
+          <button type="button" class="ghost" onclick="window.location.href='budget.html'">Open nORDER Budget Tool</button>
           <div id="onboarding-error" class="help danger"></div>
         </div>
       </section>
@@ -419,6 +423,7 @@ export function renderWelcome() {
             <input id="welcome-home" value="${escapeHtml(state.prefs.home_name)}" maxlength="30" />
           </label>
           <button id="welcome-start" class="primary">Open Inventory Hub</button>
+          <button type="button" class="ghost" onclick="window.location.href='budget.html'">Open nORDER Budget Tool</button>
           <button id="welcome-reset" class="ghost">Reset Demo Inventory Data</button>
         </div>
       </section>

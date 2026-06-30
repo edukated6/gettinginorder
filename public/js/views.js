@@ -47,7 +47,7 @@ function navLink(route, label, activeRoute, badgeCount = 0) {
 function profileAvatar(photoURL, name) {
   const safeName = escapeHtml(name || "Profile");
   if (photoURL) {
-    return `<img class="avatar" src="${escapeAttr(photoURL)}" alt="${safeName}" width="40" height="40" />`;
+    return `<img class="avatar" src="${escapeAttr(photoURL)}" alt="${safeName}" />`;
   }
 
   const first = safeName.trim().slice(0, 1).toUpperCase() || "U";
@@ -60,7 +60,7 @@ function brandedLogoBlock(variant = "default") {
   return `
     <div class="${extraClass}" aria-label="nORDER logo showcase">
       <div class="brand-logo-glow" aria-hidden="true"></div>
-      <img class="brand-logo-image" src="nORDER%20LOGO.png" alt="nORDER Logo" loading="lazy" width="200" height="200" />
+      <img class="brand-logo-image" src="nORDER%20LOGO.png" alt="nORDER Logo" loading="lazy" />
       <div class="brand-logo-caption">${label}</div>
     </div>
   `;
@@ -323,6 +323,9 @@ function shellLayout(content, route) {
           <div class="muted">${greeting}</div>
         </div>
         <div class="row">
+          <button type="button" class="ghost budget-launch-btn" onclick="window.location.href='budget.html'" aria-label="Open nORDER Budget Tool" title="Budget Tool">
+            <span class="budget-launch-glyph" aria-hidden="true">$</span><span class="topbar-label">Budget</span>
+          </button>
           <button id="open-tutorial" class="ghost" aria-label="Open beginner tutorial" title="Beginner tutorial">
             <span class="tutorial-trigger-glyph" aria-hidden="true">?</span><span class="topbar-label">Tutorial</span>
           </button>
@@ -391,6 +394,7 @@ export function renderOnboardingProfile(user) {
             </div>
           </label>
           <button id="complete-onboarding" class="primary">Save and Continue</button>
+          <button type="button" class="ghost" onclick="window.location.href='budget.html'">Open nORDER Budget Tool</button>
           <div id="onboarding-error" class="help danger"></div>
         </div>
       </section>
@@ -419,6 +423,7 @@ export function renderWelcome() {
             <input id="welcome-home" value="${escapeHtml(state.prefs.home_name)}" maxlength="30" />
           </label>
           <button id="welcome-start" class="primary">Open Inventory Hub</button>
+          <button type="button" class="ghost" onclick="window.location.href='budget.html'">Open nORDER Budget Tool</button>
           <button id="welcome-reset" class="ghost">Reset Demo Inventory Data</button>
         </div>
       </section>
@@ -1195,7 +1200,7 @@ export function renderLogin() {
         <div class="landing-orb landing-orb-c" aria-hidden="true"></div>
 
         <div class="landing-hero-inner">
-          <img class="landing-logo" src="nORDER%20LOGO.png" alt="nORDER logo" loading="eager" width="200" height="200" />
+          <img class="landing-logo" src="nORDER%20LOGO.png" alt="nORDER logo" loading="eager" />
 
           <div class="landing-text-block">
             <h1 class="landing-headline">Keep every space <span class="brand-n">n</span>ORDER</h1>
@@ -1371,7 +1376,7 @@ export function renderLogin() {
         </div>
 
         <div class="landing-auth-mobile-logo-wrap" aria-hidden="true">
-          <img class="landing-auth-mobile-logo" src="nORDER%20LOGO.png" alt="" loading="lazy" width="120" height="120" />
+          <img class="landing-auth-mobile-logo" src="nORDER%20LOGO.png" alt="" loading="lazy" />
         </div>
 
         <div class="landing-ph-badge landing-ph-badge--mobile">
@@ -1431,7 +1436,7 @@ export function renderAboutPage() {
         </div>
       </section>
 
-      <img class="about-logo-plain" src="nORDER%20LOGO.png" alt="nORDER Logo" loading="lazy" width="200" height="200" />
+      <img class="about-logo-plain" src="nORDER%20LOGO.png" alt="nORDER Logo" loading="lazy" />
     `,
     "/about"
   );
@@ -1498,7 +1503,7 @@ export function renderWelcomeTermsPage(isSignedIn) {
           <a href="#/login" class="ghost about-back-link">Back to Sign In</a>
         </div>
       </section>
-      <img class="about-logo-plain" src="nORDER%20LOGO.png" alt="nORDER Logo" loading="lazy" width="200" height="200" />
+      <img class="about-logo-plain" src="nORDER%20LOGO.png" alt="nORDER Logo" loading="lazy" />
     </div>
   `;
 }
@@ -1553,7 +1558,7 @@ export function renderWelcomeAboutPage(isSignedIn) {
           <a href="#/login" class="ghost about-back-link">Back to Sign In</a>
         </div>
       </section>
-      <img class="about-logo-plain" src="nORDER%20LOGO.png" alt="nORDER Logo" loading="lazy" width="200" height="200" />
+      <img class="about-logo-plain" src="nORDER%20LOGO.png" alt="nORDER Logo" loading="lazy" />
     </div>
   `;
 }
