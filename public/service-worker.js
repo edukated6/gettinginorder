@@ -1,4 +1,4 @@
-const CACHE_VERSION = "norder-static-v1";
+const CACHE_VERSION = "norder-static-v3";
 const APP_SHELL = [
   "./",
   "./index.html",

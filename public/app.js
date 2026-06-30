@@ -55,7 +55,7 @@ import {
   renderProfileSettings,
   renderMyInventories,
   renderCollaborationSettings,
-} from "./js/views.js?v=20260501h";
+} from "./js/views.js?v=20260503c";
 import {
   getUserInventories,
   getCollaborators,
@@ -286,11 +286,17 @@ function toInventoryPayload() {
   const state = getState();
   const items = Array.isArray(state.items) ? state.items : [];
   const retentionDays = normalizeRetentionDays(state.prefs.item_tombstone_retention_days);
+  const expirySoonDays = normalizeExpirySoonDays(state.prefs.notification_expiry_soon_days);
   const tombstones = pruneLocalItemTombstones(state.item_tombstones, items, retentionDays);
   return {
     prefs: {
       home_name: state.prefs.home_name,
       item_tombstone_retention_days: retentionDays,
+      notification_expiry_enabled: toBooleanPref(state.prefs.notification_expiry_enabled, true),
+      notification_stock_enabled: toBooleanPref(state.prefs.notification_stock_enabled, true),
+      notification_wear_enabled: toBooleanPref(state.prefs.notification_wear_enabled, true),
+      notification_restock_enabled: toBooleanPref(state.prefs.notification_restock_enabled, true),
+      notification_expiry_soon_days: expirySoonDays,
     },
     categories: state.categories,
     categories_updated_at: toFiniteTimestamp(state.categories_updated_at),
@@ -308,6 +314,27 @@ function normalizeRetentionDays(value) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return DEFAULT_ITEM_TOMBSTONE_RETENTION_DAYS;
   return Math.min(MAX_ITEM_TOMBSTONE_RETENTION_DAYS, Math.max(MIN_ITEM_TOMBSTONE_RETENTION_DAYS, Math.round(parsed)));
+}
+
+function normalizeExpirySoonDays(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 7;
+  return Math.min(60, Math.max(1, Math.round(parsed)));
+}
+
+function toBooleanPref(value, fallback = true) {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true" || normalized === "1" || normalized === "yes" || normalized === "on") {
+      return true;
+    }
+    if (normalized === "false" || normalized === "0" || normalized === "no" || normalized === "off") {
+      return false;
+    }
+  }
+  return Boolean(fallback);
 }
 
 function retentionDaysToMs(days) {
@@ -444,6 +471,25 @@ function applyRemoteInventoryData(remoteData) {
       state.prefs.home_name,
     item_tombstone_retention_days: normalizeRetentionDays(
       (remotePrefs && remotePrefs.item_tombstone_retention_days) || state.prefs.item_tombstone_retention_days
+    ),
+    notification_expiry_enabled: toBooleanPref(
+      remotePrefs && remotePrefs.notification_expiry_enabled,
+      state.prefs.notification_expiry_enabled
+    ),
+    notification_stock_enabled: toBooleanPref(
+      remotePrefs && remotePrefs.notification_stock_enabled,
+      state.prefs.notification_stock_enabled
+    ),
+    notification_wear_enabled: toBooleanPref(
+      remotePrefs && remotePrefs.notification_wear_enabled,
+      state.prefs.notification_wear_enabled
+    ),
+    notification_restock_enabled: toBooleanPref(
+      remotePrefs && remotePrefs.notification_restock_enabled,
+      state.prefs.notification_restock_enabled
+    ),
+    notification_expiry_soon_days: normalizeExpirySoonDays(
+      (remotePrefs && remotePrefs.notification_expiry_soon_days) || state.prefs.notification_expiry_soon_days
     ),
   };
   const nextItems = Array.isArray(remoteData.items) ? remoteData.items : [];

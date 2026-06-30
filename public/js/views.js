@@ -8,6 +8,7 @@
 import { getHashParams } from "./router.js";
 import { getState } from "./state.js";
 import { getRecentAccounts } from "./auth.js";
+import { getNotificationSummary } from "./notifications.js";
 import {
   STOCK_LEVELS,
   escapeAttr,
@@ -46,7 +47,7 @@ function navLink(route, label, activeRoute, badgeCount = 0) {
 function profileAvatar(photoURL, name) {
   const safeName = escapeHtml(name || "Profile");
   if (photoURL) {
-    return `<img class="avatar" src="${escapeAttr(photoURL)}" alt="${safeName}" width="40" height="40" />`;
+    return `<img class="avatar" src="${escapeAttr(photoURL)}" alt="${safeName}" />`;
   }
 
   const first = safeName.trim().slice(0, 1).toUpperCase() || "U";
@@ -59,7 +60,7 @@ function brandedLogoBlock(variant = "default") {
   return `
     <div class="${extraClass}" aria-label="nORDER logo showcase">
       <div class="brand-logo-glow" aria-hidden="true"></div>
-      <img class="brand-logo-image" src="nORDER%20LOGO.png" alt="nORDER Logo" loading="lazy" width="200" height="200" />
+      <img class="brand-logo-image" src="nORDER%20LOGO.png" alt="nORDER Logo" loading="lazy" />
       <div class="brand-logo-caption">${label}</div>
     </div>
   `;
@@ -197,6 +198,9 @@ function shellLayout(content, route) {
   const state = getState();
   const restockCount = state.items.filter((item) => item.in_shopping_list).length;
   const expiryOverview = getExpiryOverview(state.items);
+  const notificationSummary = getNotificationSummary(state);
+  const notificationUnread = notificationSummary.unreadCount;
+  const hasNotifications = notificationSummary.totalCount > 0;
   const expiryRoute = "/inventory?q=&cat=all&wear=all&sort=expiry";
   const greeting = state.prefs.profile_name
     ? `Welcome, ${escapeHtml(state.prefs.profile_name)}`
@@ -220,6 +224,96 @@ function shellLayout(content, route) {
       </section>
     `
     : "";
+  const pageAction =
+    route === "/inventory"
+      ? `
+        <button
+          id="page-floating-action"
+          class="page-fab page-fab-inventory"
+          type="button"
+          data-page-action="inventory-add"
+          aria-label="Add an inventory item from here"
+          aria-hidden="true"
+          tabindex="-1"
+        >
+          <span class="page-fab-icon" aria-hidden="true">+</span>
+          <span class="page-fab-copy">
+            <span class="page-fab-kicker">Keep stocking</span>
+            <span class="page-fab-label" data-role="page-fab-label">Add Item</span>
+            <span class="page-fab-meta" data-role="page-fab-meta">Open a quick add sheet</span>
+          </span>
+        </button>
+      `
+      : route === "/shopping"
+      ? `
+        <button
+          id="page-floating-action"
+          class="page-fab page-fab-shopping"
+          type="button"
+          data-page-action="shopping-restock"
+          aria-label="Restock checked items from here"
+          aria-hidden="true"
+          tabindex="-1"
+        >
+          <span class="page-fab-icon" aria-hidden="true">✓</span>
+          <span class="page-fab-copy">
+            <span class="page-fab-kicker">Keep moving</span>
+            <span class="page-fab-label" data-role="page-fab-label">Restock Checked</span>
+            <span class="page-fab-meta" data-role="page-fab-meta">Select items to enable</span>
+          </span>
+        </button>
+      `
+      : "";
+  const notificationPanel = `
+    <aside
+      id="norder-notification-center"
+      hidden
+      aria-label="Inventory notifications"
+      style="position:fixed;top:72px;right:14px;z-index:60;width:min(420px,calc(100vw - 28px));max-height:min(72vh,560px);overflow:auto;border:1px solid color-mix(in srgb,var(--primary) 30%,var(--border));border-radius:14px;padding:10px;background:color-mix(in srgb,var(--surface) 96%,var(--bg));box-shadow:0 18px 40px rgba(0,0,0,0.28);"
+    >
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">
+        <div>
+          <div style="font-size:0.72rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-soft);">Notifications</div>
+          <div style="font-size:0.85rem;color:var(--text-soft);">${notificationUnread} unread of ${notificationSummary.totalCount}</div>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button type="button" class="ghost" data-action="clear-notifications" ${hasNotifications ? "" : "disabled"}>Clear</button>
+          <button type="button" class="ghost" data-action="mark-all-notifications-read" ${hasNotifications ? "" : "disabled"}>Mark all read</button>
+          <button type="button" class="ghost" data-action="close-notification-center" aria-label="Close notifications">Close</button>
+        </div>
+      </div>
+      <div style="display:grid;gap:8px;">
+        ${
+          notificationSummary.notifications.length
+            ? notificationSummary.notifications
+                .map(
+                  (notice) => `
+                    <button
+                      type="button"
+                      class="ghost"
+                      data-action="open-notification"
+                      data-id="${escapeAttr(notice.id)}"
+                      data-route="${escapeAttr(notice.route || "/inventory")}" 
+                      style="text-align:left;display:grid;gap:3px;padding:10px;border-radius:10px;border:1px solid color-mix(in srgb,var(--primary) 20%,var(--border));background:${
+                        notice.isUnread
+                          ? "color-mix(in srgb,var(--primary) 14%,var(--surface))"
+                          : "color-mix(in srgb,var(--surface-muted) 68%,var(--surface))"
+                      };"
+                    >
+                      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                        <strong style="font-size:0.9rem;">${escapeHtml(notice.title)}</strong>
+                        ${notice.isUnread ? '<span style="font-size:0.7rem;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;color:var(--primary);">New</span>' : ""}
+                      </div>
+                      <span style="font-size:0.8rem;color:var(--text-soft);">${escapeHtml(notice.body)}</span>
+                    </button>
+                  `
+                )
+                .join("")
+            : '<div class="help" style="padding:6px 2px;">No active inventory alerts right now.</div>'
+        }
+      </div>
+    </aside>
+  `;
 
   return `
     <div class="app-shell">
@@ -229,8 +323,24 @@ function shellLayout(content, route) {
           <div class="muted">${greeting}</div>
         </div>
         <div class="row">
+          <button type="button" class="ghost budget-launch-btn" onclick="window.location.href='budget.html'" aria-label="Open nORDER Budget Tool" title="Budget Tool">
+            <span class="budget-launch-glyph" aria-hidden="true">$</span><span class="topbar-label">Budget</span>
+          </button>
           <button id="open-tutorial" class="ghost" aria-label="Open beginner tutorial" title="Beginner tutorial">
             <span class="tutorial-trigger-glyph" aria-hidden="true">?</span><span class="topbar-label">Tutorial</span>
+          </button>
+          <button
+            id="open-notifications"
+            class="ghost"
+            data-action="toggle-notification-center"
+            aria-expanded="false"
+            aria-controls="norder-notification-center"
+            aria-label="Open notifications"
+            style="position:relative;width:42px;height:42px;display:inline-grid;place-items:center;padding:0;border:0;background:transparent;"
+          >
+            <img src="bell-alt-svgrepo-com.svg" aria-hidden="true" style="width:1.8rem;height:1.8rem;display:block;" alt="">
+            ${notificationUnread ? `<span style="position:absolute;top:-2px;right:-2px;min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:linear-gradient(135deg,#d85a4a,#a23224);color:#fff;font-size:0.65rem;font-weight:800;display:inline-grid;place-items:center;">${Math.min(notificationUnread, 99)}</span>` : ""}
+            <span class="topbar-label">Alerts</span>
           </button>
           <button id="quick-add" class="primary" aria-label="Add item"><svg class="quick-add-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path d="M12 6C12.5523 6 13 6.44772 13 7V11H17C17.5523 11 18 11.4477 18 12C18 12.5523 17.5523 13 17 13H13V17C13 17.5523 12.5523 18 12 18C11.4477 18 11 17.5523 11 17V13H7C6.44772 13 6 12.5523 6 12C6 11.4477 6.44772 11 7 11H11V7C11 6.44772 11.4477 6 12 6Z" fill="#53c6ab"/><path fill-rule="evenodd" clip-rule="evenodd" d="M2 4.5C2 3.11929 3.11929 2 4.5 2H19.5C20.8807 2 22 3.11929 22 4.5V19.5C22 20.8807 20.8807 22 19.5 22H4.5C3.11929 22 2 20.8807 2 19.5V4.5ZM4.5 4C4.22386 4 4 4.22386 4 4.5V19.5C4 19.7761 4.22386 20 4.5 20H19.5C19.7761 20 20 19.7761 20 19.5V4.5C20 4.22386 19.7761 4 19.5 4H4.5Z" fill="#53c6ab"/></svg><span class="topbar-label">Add item</span></button>
           <button id="switch-profile" class="ghost" aria-label="Switch profile"><svg class="switch-profile-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path d="M18.7153 1.71609C18.3241 1.32351 18.3241 0.687013 18.7153 0.294434C19.1066 -0.0981448 19.7409 -0.0981448 20.1321 0.294434L22.4038 2.57397L22.417 2.58733C23.1935 3.37241 23.1917 4.64056 22.4116 5.42342L20.1371 7.70575C19.7461 8.09808 19.1122 8.09808 18.7213 7.70575C18.3303 7.31342 18.3303 6.67733 18.7213 6.285L20.0018 5L4.99998 5C4.4477 5 3.99998 5.44772 3.99998 6V13C3.99998 13.5523 3.55227 14 2.99998 14C2.4477 14 1.99998 13.5523 1.99998 13V6C1.99998 4.34315 3.34313 3 4.99998 3H19.9948L18.7153 1.71609Z" fill="#43dfc5"/><path d="M22 11C22 10.4477 21.5523 10 21 10C20.4477 10 20 10.4477 20 11V18C20 18.5523 19.5523 19 19 19L4.00264 19L5.28213 17.7161C5.67335 17.3235 5.67335 16.687 5.28212 16.2944C4.8909 15.9019 4.2566 15.9019 3.86537 16.2944L1.59369 18.574L1.58051 18.5873C0.803938 19.3724 0.805727 20.6406 1.58588 21.4234L3.86035 23.7058C4.25133 24.0981 4.88523 24.0981 5.2762 23.7058C5.66718 23.3134 5.66718 22.6773 5.2762 22.285L3.99563 21L19 21C20.6568 21 22 19.6569 22 18L22 11Z" fill="#43dfc5"/></svg><span class="topbar-label">Switch</span></button>
@@ -239,7 +349,9 @@ function shellLayout(content, route) {
           </button>
         </div>
       </header>
+      ${notificationPanel}
       <main class="page">${expiryBanner}${content}</main>
+      ${pageAction}
       <nav class="bottom-nav">
         <div class="bottom-nav-inner">
           ${navLink("/inventory", "Inventory", route)}
@@ -282,6 +394,7 @@ export function renderOnboardingProfile(user) {
             </div>
           </label>
           <button id="complete-onboarding" class="primary">Save and Continue</button>
+          <button type="button" class="ghost" onclick="window.location.href='budget.html'">Open nORDER Budget Tool</button>
           <div id="onboarding-error" class="help danger"></div>
         </div>
       </section>
@@ -310,6 +423,7 @@ export function renderWelcome() {
             <input id="welcome-home" value="${escapeHtml(state.prefs.home_name)}" maxlength="30" />
           </label>
           <button id="welcome-start" class="primary">Open Inventory Hub</button>
+          <button type="button" class="ghost" onclick="window.location.href='budget.html'">Open nORDER Budget Tool</button>
           <button id="welcome-reset" class="ghost">Reset Demo Inventory Data</button>
         </div>
       </section>
@@ -605,9 +719,13 @@ export function renderInventory() {
   return shellLayout(
     `
     <section class="section-card">
-      <div class="row space" style="margin-bottom:8px;">
-        <h1>Inventory Workspace</h1>
-        <button id="toggle-item-form">Add New</button>
+      <div class="row inventory-title-row" style="margin-bottom:8px;">
+        <h1>Inventory<br class="inv-title-break"> Workspace</h1>
+        <button id="check-inventory-btn" class="inv-check-trigger" aria-label="Check all inventory items" title="Check Inventory">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path fill-rule="evenodd" clip-rule="evenodd" d="M2 4.5C2 3.11929 3.11929 2 4.5 2H19.5C20.8807 2 22 3.11929 22 4.5V19.5C22 20.8807 20.8807 22 19.5 22H4.5C3.11929 22 2 20.8807 2 19.5V4.5ZM4.5 4C4.22386 4 4 4.22386 4 4.5V19.5C4 19.7761 4.22386 20 4.5 20H19.5C19.7761 20 20 19.7761 20 19.5V4.5C20 4.22386 19.7761 4 19.5 4H4.5Z" fill="currentColor"/></svg>
+          Check Inventory
+        </button>
+        <button id="toggle-item-form" aria-label="Add new item" title="Add New"><svg class="quick-add-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path d="M12 6C12.5523 6 13 6.44772 13 7V11H17C17.5523 11 18 11.4477 18 12C18 12.5523 17.5523 13 17 13H13V17C13 17.5523 12.5523 18 12 18C11.4477 18 11 17.5523 11 17V13H7C6.44772 13 6 12.5523 6 12C6 11.4477 6.44772 11 7 11H11V7C11 6.44772 11.4477 6 12 6Z" fill="#53c6ab"/><path fill-rule="evenodd" clip-rule="evenodd" d="M2 4.5C2 3.11929 3.11929 2 4.5 2H19.5C20.8807 2 22 3.11929 22 4.5V19.5C22 20.8807 20.8807 22 19.5 22H4.5C3.11929 22 2 20.8807 2 19.5V4.5ZM4.5 4C4.22386 4 4 4.22386 4 4.5V19.5C4 19.7761 4.22386 20 4.5 20H19.5C19.7761 20 20 19.7761 20 19.5V4.5C20 4.22386 19.7761 4 19.5 4H4.5Z" fill="#53c6ab"/></svg></button>
       </div>
 
       <div class="toolbar">
@@ -647,65 +765,83 @@ export function renderInventory() {
       </div>
           <p id="inventory-filtering" class="inventory-filtering" aria-live="polite">Filtering...</p>
 
-      <div id="item-form" class="dialog">
-        <div class="grid">
-          <label class="field" for="item-name">
-            <span class="field-label">Item name</span>
-            <input id="item-name" placeholder="e.g. Coffee Beans or Printer Paper" maxlength="50" />
-          </label>
-          <label class="field" for="item-brand">
-            <span class="field-label">Brand name (optional)</span>
-            <input id="item-brand" placeholder="e.g. Lavazza or HP" maxlength="50" />
-          </label>
-          <label class="field" for="item-category">
-            <span class="field-label">Category</span>
-            <select id="item-category">
-              ${state.categories.map((c) => `<option>${escapeHtml(c.name)}</option>`).join("")}
-            </select>
-          </label>
-          <label class="field" for="item-stock-level">
-            <span class="field-label">Stock level</span>
-            <select id="item-stock-level" aria-describedby="item-stock-level-note">
-              ${STOCK_LEVELS.map((level) => `<option>${escapeHtml(level)}</option>`).join("")}
-            </select>
-            <span id="item-stock-level-note" class="help" style="display:none;margin-top:4px;">Disabled because stock is controlled elsewhere for this item.</span>
-          </label>
-          <div class="row form-row-two">
-            <label class="field" for="item-container-type">
-              <span class="field-label">Container (optional)</span>
-              <select id="item-container-type">
-                <option value="">None</option>
-                <option>Bottle</option>
-                <option>Can</option>
-                <option>Bag</option>
-                <option>Box</option>
-              </select>
-            </label>
-            <label class="field" for="item-quantity">
-              <span class="field-label">Quantity</span>
-              <input id="item-quantity" type="number" min="1" max="24" value="1" />
-            </label>
+      <div id="item-form" class="add-item-overlay" role="dialog" aria-modal="true" aria-labelledby="add-item-modal-title">
+        <div class="inv-check-sheet add-item-sheet">
+          <div class="inv-check-header">
+            <div class="inv-check-header-left">
+              <span class="inv-check-kicker">Inventory</span>
+              <h2 class="inv-check-title" id="add-item-modal-title">Add New Item</h2>
+            </div>
+            <button class="icon-btn" data-role="add-item-close" aria-label="Close" title="Close">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+            </button>
           </div>
-          <label class="field" for="item-enable-wear-and-tear">
-            <span class="field-label">Wear and tear (optional)</span>
-            <label class="row" style="gap:8px;align-items:center;justify-content:flex-start;margin:0;">
-              <input id="item-enable-wear-and-tear" type="checkbox" style="width:auto;" />
-              <span class="help" style="margin:0;">This item needs wear-and-tear tracking</span>
-            </label>
-          </label>
-          <label id="item-wear-and-tear-config" class="field" for="item-wear-and-tear-level" style="display:none;">
-            <span class="field-label">Wear level</span>
-            <select id="item-wear-and-tear-level">
-              ${WEAR_LEVELS.map((level) => `<option>${escapeHtml(level)}</option>`).join("")}
-            </select>
-          </label>
-          <div id="item-unit-wear-levels" class="unit-level-wrap"></div>
-          <div id="item-unit-stock-levels" class="unit-level-wrap"></div>
-          <label class="field" for="item-expiry">
-            <span class="field-label">Expiry date</span>
-            <input id="item-expiry" type="date" />
-          </label>
-          <button id="save-item" class="primary">Save Inventory Item</button>
+          <div class="inv-check-body add-item-body">
+            <div class="inv-check-fields">
+              <label class="field" for="item-name">
+                <span class="field-label">Item name</span>
+                <input id="item-name" placeholder="e.g. Coffee Beans or Printer Paper" maxlength="50" />
+              </label>
+              <div class="inv-check-fields-row">
+                <label class="field" for="item-brand">
+                  <span class="field-label">Brand (optional)</span>
+                  <input id="item-brand" placeholder="e.g. Lavazza or HP" maxlength="50" />
+                </label>
+                <label class="field" for="item-category">
+                  <span class="field-label">Category</span>
+                  <select id="item-category">
+                    ${state.categories.map((c) => `<option>${escapeHtml(c.name)}</option>`).join("")}
+                  </select>
+                </label>
+              </div>
+              <label class="field" for="item-stock-level">
+                <span class="field-label">Stock level</span>
+                <select id="item-stock-level" aria-describedby="item-stock-level-note">
+                  ${STOCK_LEVELS.map((level) => `<option>${escapeHtml(level)}</option>`).join("")}
+                </select>
+                <span id="item-stock-level-note" class="help" style="display:none;margin-top:4px;">Disabled because stock is controlled elsewhere for this item.</span>
+              </label>
+              <div class="inv-check-fields-row">
+                <label class="field" for="item-container-type">
+                  <span class="field-label">Container (optional)</span>
+                  <select id="item-container-type">
+                    <option value="">None</option>
+                    <option>Bottle</option>
+                    <option>Can</option>
+                    <option>Bag</option>
+                    <option>Box</option>
+                  </select>
+                </label>
+                <label class="field" for="item-quantity">
+                  <span class="field-label">Quantity</span>
+                  <input id="item-quantity" type="number" min="1" max="24" value="1" />
+                </label>
+              </div>
+              <label class="field" for="item-enable-wear-and-tear">
+                <span class="field-label">Wear and tear (optional)</span>
+                <label class="row" style="gap:8px;align-items:center;justify-content:flex-start;margin:0;">
+                  <input id="item-enable-wear-and-tear" type="checkbox" style="width:auto;" />
+                  <span class="help" style="margin:0;">This item needs wear-and-tear tracking</span>
+                </label>
+              </label>
+              <label id="item-wear-and-tear-config" class="field" for="item-wear-and-tear-level" style="display:none;">
+                <span class="field-label">Wear level</span>
+                <select id="item-wear-and-tear-level">
+                  ${WEAR_LEVELS.map((level) => `<option>${escapeHtml(level)}</option>`).join("")}
+                </select>
+              </label>
+              <div id="item-unit-wear-levels" class="unit-level-wrap"></div>
+              <div id="item-unit-stock-levels" class="unit-level-wrap"></div>
+              <label class="field" for="item-expiry">
+                <span class="field-label">Expiry date</span>
+                <input id="item-expiry" type="date" />
+              </label>
+            </div>
+          </div>
+          <div class="inv-check-nav">
+            <button class="ghost" data-role="add-item-cancel">Cancel</button>
+            <button id="save-item" class="primary">Save Item</button>
+          </div>
         </div>
       </div>
 
@@ -729,7 +865,8 @@ export function renderInventory() {
                       const isBrandNew = wear.enabled && wear.level === "Brand New";
                       const wearFillPercent = isBrandNew ? 0 : wear.percentage;
                       const wearLevelValue = wear.level.toLowerCase().replace(/\s+/g, "-");
-                      const byText = !query || item.name.toLowerCase().includes(query);
+                      const itemBrand = String(item && item.brand_name ? item.brand_name : "").toLowerCase();
+                      const byText = !query || item.name.toLowerCase().includes(query) || itemBrand.includes(query);
                       const byCat = filter === "all" || item.category.toLowerCase() === filter;
                       const byWear =
                         wearFilter === "all" ||
@@ -751,6 +888,7 @@ export function renderInventory() {
                     class="${itemClasses}"
                     data-role="inventory-item"
                     data-name="${escapeAttr(item.name.toLowerCase())}"
+                    data-brand="${escapeAttr(itemBrand)}"
                     data-category="${escapeAttr(item.category.toLowerCase())}"
                     data-stock="${stockPercent}"
                     data-updated="${updatedDate}"
@@ -869,6 +1007,10 @@ export function renderSettings() {
   const state = getState();
   return shellLayout(
     `
+    <div class="row space" style="margin-bottom:10px;">
+      <h1 style="margin:0;">Settings</h1>
+      <span id="sync-indicator" class="sync-indicator" data-state="idle">Sync idle</span>
+    </div>
     <section class="section-card" style="margin-top:10px;">
       <h2 style="margin:0 0 8px 0;">Inventory Preferences</h2>
       <p class="help">These settings apply only to the currently selected inventory space.</p>
@@ -877,22 +1019,47 @@ export function renderSettings() {
           <span class="help">Inventory space name</span>
           <input id="prefs-home" value="${escapeHtml(state.prefs.home_name)}" maxlength="30" />
         </label>
-        <label>
-          <span class="help">Delete marker retention (days)</span>
-          <input id="prefs-tombstone-days" type="number" min="1" max="365" step="1" value="${Number(
-            state.prefs.item_tombstone_retention_days || 30
-          )}" />
-          <span class="help">Higher values improve cross-device delete reliability; lower values reduce sync data size.</span>
-        </label>
+        <section class="section-card" style="padding:10px;">
+          <h2 style="margin:0 0 8px 0;">Notification Preferences</h2>
+          <p class="help" style="margin-bottom:8px;">Choose which inventory signals should appear in your alert center.</p>
+          <div class="grid">
+            <label class="row" style="gap:8px;justify-content:flex-start;">
+              <input id="prefs-notify-expiry-enabled" type="checkbox" style="width:auto;" ${
+                state.prefs.notification_expiry_enabled !== false ? "checked" : ""
+              } />
+              <span class="help" style="margin:0;">Expiry alerts</span>
+            </label>
+            <label>
+              <span class="help">Expiry "soon" window (days)</span>
+              <input id="prefs-notify-expiry-soon-days" type="number" min="1" max="60" step="1" value="${Number(
+                state.prefs.notification_expiry_soon_days || 7
+              )}" />
+            </label>
+            <label class="row" style="gap:8px;justify-content:flex-start;">
+              <input id="prefs-notify-stock-enabled" type="checkbox" style="width:auto;" ${
+                state.prefs.notification_stock_enabled !== false ? "checked" : ""
+              } />
+              <span class="help" style="margin:0;">Low stock alerts</span>
+            </label>
+            <label class="row" style="gap:8px;justify-content:flex-start;">
+              <input id="prefs-notify-wear-enabled" type="checkbox" style="width:auto;" ${
+                state.prefs.notification_wear_enabled !== false ? "checked" : ""
+              } />
+              <span class="help" style="margin:0;">Wear replacement alerts</span>
+            </label>
+            <label class="row" style="gap:8px;justify-content:flex-start;">
+              <input id="prefs-notify-restock-enabled" type="checkbox" style="width:auto;" ${
+                state.prefs.notification_restock_enabled !== false ? "checked" : ""
+              } />
+              <span class="help" style="margin:0;">Restock queue summary alerts</span>
+            </label>
+          </div>
+        </section>
         <button id="save-prefs" class="primary">Save Inventory Preferences</button>
       </div>
     </section>
 
     <section class="section-card" style="margin-top:10px;">
-      <div class="row space" style="margin-bottom:8px;">
-        <h1 style="margin:0;">Settings</h1>
-        <span id="sync-indicator" class="sync-indicator" data-state="idle">Sync idle</span>
-      </div>
       <div class="row space" style="margin-bottom:8px;">
         <h2 style="margin:0;">Categories</h2>
         <button id="add-category">Add Category</button>
@@ -1033,7 +1200,7 @@ export function renderLogin() {
         <div class="landing-orb landing-orb-c" aria-hidden="true"></div>
 
         <div class="landing-hero-inner">
-          <img class="landing-logo" src="nORDER%20LOGO.png" alt="nORDER logo" loading="eager" width="200" height="200" />
+          <img class="landing-logo" src="nORDER%20LOGO.png" alt="nORDER logo" loading="eager" />
 
           <div class="landing-text-block">
             <h1 class="landing-headline">Keep every space <span class="brand-n">n</span>ORDER</h1>
@@ -1209,7 +1376,7 @@ export function renderLogin() {
         </div>
 
         <div class="landing-auth-mobile-logo-wrap" aria-hidden="true">
-          <img class="landing-auth-mobile-logo" src="nORDER%20LOGO.png" alt="" loading="lazy" width="120" height="120" />
+          <img class="landing-auth-mobile-logo" src="nORDER%20LOGO.png" alt="" loading="lazy" />
         </div>
 
         <div class="landing-ph-badge landing-ph-badge--mobile">
@@ -1269,7 +1436,7 @@ export function renderAboutPage() {
         </div>
       </section>
 
-      <img class="about-logo-plain" src="nORDER%20LOGO.png" alt="nORDER Logo" loading="lazy" width="200" height="200" />
+      <img class="about-logo-plain" src="nORDER%20LOGO.png" alt="nORDER Logo" loading="lazy" />
     `,
     "/about"
   );
@@ -1336,7 +1503,7 @@ export function renderWelcomeTermsPage(isSignedIn) {
           <a href="#/login" class="ghost about-back-link">Back to Sign In</a>
         </div>
       </section>
-      <img class="about-logo-plain" src="nORDER%20LOGO.png" alt="nORDER Logo" loading="lazy" width="200" height="200" />
+      <img class="about-logo-plain" src="nORDER%20LOGO.png" alt="nORDER Logo" loading="lazy" />
     </div>
   `;
 }
@@ -1391,7 +1558,7 @@ export function renderWelcomeAboutPage(isSignedIn) {
           <a href="#/login" class="ghost about-back-link">Back to Sign In</a>
         </div>
       </section>
-      <img class="about-logo-plain" src="nORDER%20LOGO.png" alt="nORDER Logo" loading="lazy" width="200" height="200" />
+      <img class="about-logo-plain" src="nORDER%20LOGO.png" alt="nORDER Logo" loading="lazy" />
     </div>
   `;
 }

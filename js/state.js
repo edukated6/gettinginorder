@@ -38,6 +38,11 @@ const ACCOUNT_PREF_DEFAULTS = {
 const INVENTORY_PREF_DEFAULTS = {
   home_name: "Inventory Hub",
   item_tombstone_retention_days: 30,
+  notification_expiry_enabled: true,
+  notification_stock_enabled: true,
+  notification_wear_enabled: true,
+  notification_restock_enabled: true,
+  notification_expiry_soon_days: 7,
 };
 
 function createDefaults() {

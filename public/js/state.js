@@ -38,6 +38,11 @@ const ACCOUNT_PREF_DEFAULTS = {
 const INVENTORY_PREF_DEFAULTS = {
   home_name: "Inventory Hub",
   item_tombstone_retention_days: 30,
+  notification_expiry_enabled: true,
+  notification_stock_enabled: true,
+  notification_wear_enabled: true,
+  notification_restock_enabled: true,
+  notification_expiry_soon_days: 7,
 };
 
 function createDefaults() {
@@ -83,6 +88,10 @@ function createDefaults() {
       },
     ],
     item_tombstones: {},
+    budget: {
+      monthly_income: 0,
+      bills: [],
+    },
   };
 }
 
@@ -131,12 +140,19 @@ function normalizeStateShape(inputState, defaults = createDefaults()) {
     ...pickByTemplate(legacyPrefs, INVENTORY_PREF_DEFAULTS),
   };
 
+  const budget = {
+    monthly_income: 0,
+    bills: [],
+    ...(input.budget && typeof input.budget === "object" ? input.budget : {}),
+  };
+
   return {
     ...deepClone(defaults),
     ...input,
     account,
     inventory,
     prefs: composePrefs(account, inventory),
+    budget,
     categories: Array.isArray(input.categories) ? input.categories : deepClone(defaults.categories),
     categories_updated_at: toFiniteTimestamp(input.categories_updated_at),
     items: Array.isArray(input.items) ? input.items : deepClone(defaults.items),
