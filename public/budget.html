@@ -4,25 +4,26 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#1f7a69" />
+    <link rel="icon" type="image/png" href="./favicon.png" />
+    <link rel="apple-touch-icon" href="./favicon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./budget.css?v=20260629c" />
-    <title>nORDER Budget Tool</title>
+    <link rel="stylesheet" href="./budget.css?v=20260630a" />
+    <title>bUDGET</title>
   </head>
   <body>
     <div class="budget-shell">
       <header class="budget-header">
         <div>
-          <p class="kicker">Finance</p>
-          <h1><span class="brand-n">n</span>ORDER Budget Tool</h1>
+          <h1><span class="brand-n">b</span>UDGET</h1>
           <p class="subtitle">Bills, services, and fast percentage math in one focused workspace.</p>
           <p id="sync-status" class="sync-status" aria-live="polite">Sync: local only</p>
         </div>
         <a class="home-link" href="./index.html">Back to nORDER App</a>
       </header>
 
-      <nav class="budget-tabs" aria-label="Budget tool pages">
+      <nav class="budget-tabs" aria-label="bUDGET tool pages">
         <button class="tab active" data-page="dashboard" type="button">Dashboard</button>
         <button class="tab" data-page="calculator" type="button">Calculator</button>
         <button class="tab" data-page="bills" type="button">Bills Planner</button>
@@ -33,12 +34,25 @@
           <div class="card card-hero">
             <div>
               <h2>Monthly Snapshot</h2>
-              <p class="help">Set your income once, then track total expenses and service commitments.</p>
+              <p class="help">Add one or more income sources and the monthly total updates automatically everywhere.</p>
             </div>
-            <label class="inline-field">
-              <span>Monthly income</span>
-              <input id="monthly-income" type="number" min="0" step="0.01" placeholder="0.00" />
-            </label>
+            <div class="inline-field">
+              <span>Monthly income total</span>
+              <strong id="monthly-income-total" class="income-total">$0.00</strong>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="section-title-row">
+              <h3>Income Stack</h3>
+            </div>
+            <p class="help">Add salary, side work, or any repeating income source. The total is the sum of every entry below.</p>
+            <form id="income-form" class="field-grid income-form">
+              <input id="income-name" required maxlength="60" placeholder="Income source name" />
+              <input id="income-amount" type="number" min="0" step="0.01" required placeholder="Amount" />
+              <button class="primary" type="submit">Add Income</button>
+            </form>
+            <ul id="income-list" class="income-list"></ul>
           </div>
 
           <div class="stats-grid">
@@ -151,6 +165,7 @@
                 <option value="debt">Debt</option>
                 <option value="other">Other</option>
               </select>
+              <label class="bill-toggle"><input id="bill-recurring" type="checkbox" checked /> Repeats every month</label>
               <button class="primary" type="submit">Add Item</button>
             </form>
           </div>
@@ -160,8 +175,46 @@
               <h3>Monthly Expense Regiment</h3>
               <button id="clear-bills" class="ghost" type="button">Clear All</button>
             </div>
-            <p class="help">Drag rows to reorder your monthly flow. You can also edit fields inline.</p>
-            <ul id="bills-list" class="bills-list"></ul>
+            <p class="help">Drag items between Active and Inactive to control what counts as monthly. Click an item to open its edit window.</p>
+            <div id="bills-board" class="bills-board">
+              <section class="bills-zone">
+                <h4>Active Monthly</h4>
+                <ul id="bills-active-list" class="bills-list bills-zone-list" data-zone="active"></ul>
+              </section>
+              <section class="bills-zone">
+                <h4>Inactive</h4>
+                <ul id="bills-inactive-list" class="bills-list bills-zone-list" data-zone="inactive"></ul>
+              </section>
+            </div>
+          </div>
+
+          <div id="bill-editor-modal" class="bill-modal" hidden>
+            <div class="bill-modal-backdrop" data-action="close-editor"></div>
+            <section class="bill-modal-panel" role="dialog" aria-modal="true" aria-labelledby="bill-editor-title">
+              <div class="section-title-row">
+                <h3 id="bill-editor-title">Edit Bill or Service</h3>
+                <button id="bill-editor-close" class="ghost" type="button">Close</button>
+              </div>
+              <form id="bill-editor-form" class="field-grid">
+                <input id="edit-bill-name" required maxlength="60" placeholder="Name" />
+                <input id="edit-bill-amount" type="number" min="0" step="0.01" required placeholder="Monthly amount" />
+                <input id="edit-bill-due-day" type="number" min="1" max="31" required placeholder="Due day (1-31)" />
+                <select id="edit-bill-type">
+                  <option value="bill">Bill</option>
+                  <option value="service">Service</option>
+                  <option value="subscription">Subscription</option>
+                  <option value="debt">Debt</option>
+                  <option value="other">Other</option>
+                </select>
+                <label class="bill-toggle"><input id="edit-bill-paid" type="checkbox" /> Mark as paid</label>
+                <label class="bill-toggle"><input id="edit-bill-active" type="checkbox" /> Include in monthly active list</label>
+                <label class="bill-toggle"><input id="edit-bill-recurring" type="checkbox" /> Repeats every month</label>
+                <div class="row-buttons">
+                  <button id="bill-editor-cancel" type="button">Cancel</button>
+                  <button class="primary" type="submit">Save Changes</button>
+                </div>
+              </form>
+            </section>
           </div>
         </section>
       </main>
@@ -176,6 +229,6 @@
         window.dispatchEvent(new Event("norder:budget-firebase-ready"));
       });
     </script>
-    <script src="./budget.js?v=20260629c"></script>
+    <script src="./budget.js?v=20260701c"></script>
   </body>
 </html>

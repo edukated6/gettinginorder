@@ -13,7 +13,7 @@
     <link rel="icon" type="image/png" href="./favicon.png" />
     <link rel="apple-touch-icon" href="./favicon.png" />
     <link rel="manifest" href="./manifest.json" />
-    <link rel="stylesheet" href="./app.css?v=20260502b" />
+    <link rel="stylesheet" href="./app.css?v=20260701a" />
     <title>nORDER</title>
   </head>
   <body>
@@ -65,13 +65,19 @@
         };
       })();
     </script>
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+    <script>
+      window.__NORDER_DESKTOP_LOCAL__ = Boolean(
+        window.norderDesktop && window.norderDesktop.localOnly
+      );
+      if (!window.__NORDER_DESKTOP_LOCAL__) {
+        document.write('<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"><' + '/script>');
+        document.write('<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"><' + '/script>');
+        document.write('<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"><' + '/script>');
+      }
+    </script>
 
     <script type="module" defer>
-      import("./app.js?v=20260503c").catch((error) => {
+      import("./app.js?v=20260701k").catch((error) => {
         const app = document.getElementById("app");
         if (!app) return;
         app.innerHTML = window.norderRenderBootstrapFallback({
@@ -86,7 +92,7 @@
         });
       });
 
-      if ("serviceWorker" in navigator) {
+      if ("serviceWorker" in navigator && !window.__NORDER_DESKTOP_LOCAL__) {
         window.addEventListener("load", () => {
           navigator.serviceWorker.register("./service-worker.js").then((reg) => {
             function showUpdateToast(worker) {

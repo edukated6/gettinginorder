@@ -19,7 +19,7 @@ import {
   unlockAuthSession,
   updateUserProfile,
 } from "./auth.js";
-import { setRoute } from "./router.js";
+import { getHashParams, setRoute } from "./router.js";
 import {
   defaultHomeName,
   applyTheme,
@@ -608,6 +608,31 @@ function handlePasswordToggleClick(e) {
 export function wireAuthEvents(onRender) {
   authOnRender = onRender;
 
+  const authParams = getHashParams();
+  const authMode = String(authParams.get("mode") || "").trim().toLowerCase();
+  const authIntent = String(authParams.get("intent") || "").trim().toLowerCase();
+  const authNextRaw = String(authParams.get("next") || "").trim();
+  const authNextTarget =
+    authNextRaw.startsWith("/") && !authNextRaw.startsWith("//") && !/^[\r\n\t]/.test(authNextRaw)
+      ? authNextRaw
+      : "";
+
+  const maybeShowIntentMessage = () => {
+    if (authIntent !== "add-item") return;
+    const loginError = document.getElementById("login-error");
+    const signupError = document.getElementById("signup-error");
+    const message = "Create an account or sign in to add items to your inventory.";
+    if (authMode === "signup" && signupError) {
+      signupError.style.color = "var(--text-soft)";
+      signupError.innerText = message;
+      return;
+    }
+    if (loginError) {
+      loginError.style.color = "var(--text-soft)";
+      loginError.innerText = message;
+    }
+  };
+
   // Login
   const loginBtn = document.getElementById("login-btn");
   if (loginBtn) loginBtn.addEventListener("click", async () => {
@@ -628,6 +653,10 @@ export function wireAuthEvents(onRender) {
       if (errorDiv) errorDiv.innerText = "Signing in...";
       const user = await signIn(email, password, rememberMe);
       await syncLocalProfile(user);
+      if (!isOnboardingRequired(user) && authNextTarget) {
+        window.location.href = authNextTarget;
+        return;
+      }
       setRoute(isOnboardingRequired(user) ? "/onboarding" : "/inventories");
     } catch (error) {
       const msg = String(error && error.message ? error.message : error);
@@ -730,6 +759,17 @@ export function wireAuthEvents(onRender) {
     document.getElementById("signup-form").style.display = "none";
     document.getElementById("login-form").style.display = "block";
   });
+
+  if (authMode === "signup") {
+    const loginForm = document.getElementById("login-form");
+    const signupForm = document.getElementById("signup-form");
+    if (loginForm && signupForm) {
+      loginForm.style.display = "none";
+      signupForm.style.display = "block";
+    }
+  }
+
+  maybeShowIntentMessage();
 
   if (!quickLoginClickHandlerAttached) {
     quickLoginClickHandlerAttached = true;

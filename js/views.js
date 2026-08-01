@@ -33,6 +33,10 @@ const EXPIRY_SOON_DAYS = 7;
 const EXPIRY_CRITICAL_DAYS = 3;
 const MS_PER_DAY = 86400000;
 
+function isDesktopLocalMode() {
+  return typeof window !== "undefined" && Boolean(window.__NORDER_DESKTOP_LOCAL__);
+}
+
 function navLink(route, label, activeRoute, badgeCount = 0) {
   const active = activeRoute === route ? "active" : "";
   const hasBadge = Number.isFinite(Number(badgeCount)) && Number(badgeCount) > 0;
@@ -196,6 +200,8 @@ function getExpiryOverview(items) {
 
 function shellLayout(content, route) {
   const state = getState();
+  const localMode = isDesktopLocalMode();
+  const budgetLaunchHref = "./budget.html";
   const restockCount = state.items.filter((item) => item.in_shopping_list).length;
   const expiryOverview = getExpiryOverview(state.items);
   const notificationSummary = getNotificationSummary(state);
@@ -264,6 +270,11 @@ function shellLayout(content, route) {
         </button>
       `
       : "";
+  const switchProfileAction = `<button id="switch-profile" class="ghost" aria-label="${
+    localMode ? "Open local workspace tools" : "Switch profile"
+  }"><svg class="switch-profile-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path d="M18.7153 1.71609C18.3241 1.32351 18.3241 0.687013 18.7153 0.294434C19.1066 -0.0981448 19.7409 -0.0981448 20.1321 0.294434L22.4038 2.57397L22.417 2.58733C23.1935 3.37241 23.1917 4.64056 22.4116 5.42342L20.1371 7.70575C19.7461 8.09808 19.1122 8.09808 18.7213 7.70575C18.3303 7.31342 18.3303 6.67733 18.7213 6.285L20.0018 5L4.99998 5C4.4477 5 3.99998 5.44772 3.99998 6V13C3.99998 13.5523 3.55227 14 2.99998 14C2.4477 14 1.99998 13.5523 1.99998 13V6C1.99998 4.34315 3.34313 3 4.99998 3H19.9948L18.7153 1.71609Z" fill="#43dfc5"/><path d="M22 11C22 10.4477 21.5523 10 21 10C20.4477 10 20 10.4477 20 11V18C20 18.5523 19.5523 19 19 19L4.00264 19L5.28213 17.7161C5.67335 17.3235 5.67335 16.687 5.28212 16.2944C4.8909 15.9019 4.2566 15.9019 3.86537 16.2944L1.59369 18.574L1.58051 18.5873C0.803938 19.3724 0.805727 20.6406 1.58588 21.4234L3.86035 23.7058C4.25133 24.0981 4.88523 24.0981 5.2762 23.7058C5.66718 23.3134 5.66718 22.6773 5.2762 22.285L3.99563 21L19 21C20.6568 21 22 19.6569 22 18L22 11Z" fill="#43dfc5"/></svg><span class="topbar-label">${
+    localMode ? "Tools" : "Switch"
+  }</span></button>`;
   const notificationPanel = `
     <aside
       id="norder-notification-center"
@@ -323,8 +334,8 @@ function shellLayout(content, route) {
           <div class="muted">${greeting}</div>
         </div>
         <div class="row">
-          <button type="button" class="ghost budget-launch-btn" onclick="window.location.href='budget.html'" aria-label="Open nORDER Budget Tool" title="Budget Tool">
-            <span class="budget-launch-glyph" aria-hidden="true">$</span><span class="topbar-label">Budget</span>
+          <button type="button" class="ghost budget-launch-btn" onclick="window.location.href='${budgetLaunchHref}'" aria-label="Open nORDER bUDGET Tool" title="bUDGET Tool">
+            <span class="budget-launch-glyph" aria-hidden="true">$</span><span class="topbar-label">bUDGET</span>
           </button>
           <button id="open-tutorial" class="ghost" aria-label="Open beginner tutorial" title="Beginner tutorial">
             <span class="tutorial-trigger-glyph" aria-hidden="true">?</span><span class="topbar-label">Tutorial</span>
@@ -343,7 +354,7 @@ function shellLayout(content, route) {
             <span class="topbar-label">Alerts</span>
           </button>
           <button id="quick-add" class="primary" aria-label="Add item"><svg class="quick-add-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path d="M12 6C12.5523 6 13 6.44772 13 7V11H17C17.5523 11 18 11.4477 18 12C18 12.5523 17.5523 13 17 13H13V17C13 17.5523 12.5523 18 12 18C11.4477 18 11 17.5523 11 17V13H7C6.44772 13 6 12.5523 6 12C6 11.4477 6.44772 11 7 11H11V7C11 6.44772 11.4477 6 12 6Z" fill="#53c6ab"/><path fill-rule="evenodd" clip-rule="evenodd" d="M2 4.5C2 3.11929 3.11929 2 4.5 2H19.5C20.8807 2 22 3.11929 22 4.5V19.5C22 20.8807 20.8807 22 19.5 22H4.5C3.11929 22 2 20.8807 2 19.5V4.5ZM4.5 4C4.22386 4 4 4.22386 4 4.5V19.5C4 19.7761 4.22386 20 4.5 20H19.5C19.7761 20 20 19.7761 20 19.5V4.5C20 4.22386 19.7761 4 19.5 4H4.5Z" fill="#53c6ab"/></svg><span class="topbar-label">Add item</span></button>
-          <button id="switch-profile" class="ghost" aria-label="Switch profile"><svg class="switch-profile-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path d="M18.7153 1.71609C18.3241 1.32351 18.3241 0.687013 18.7153 0.294434C19.1066 -0.0981448 19.7409 -0.0981448 20.1321 0.294434L22.4038 2.57397L22.417 2.58733C23.1935 3.37241 23.1917 4.64056 22.4116 5.42342L20.1371 7.70575C19.7461 8.09808 19.1122 8.09808 18.7213 7.70575C18.3303 7.31342 18.3303 6.67733 18.7213 6.285L20.0018 5L4.99998 5C4.4477 5 3.99998 5.44772 3.99998 6V13C3.99998 13.5523 3.55227 14 2.99998 14C2.4477 14 1.99998 13.5523 1.99998 13V6C1.99998 4.34315 3.34313 3 4.99998 3H19.9948L18.7153 1.71609Z" fill="#43dfc5"/><path d="M22 11C22 10.4477 21.5523 10 21 10C20.4477 10 20 10.4477 20 11V18C20 18.5523 19.5523 19 19 19L4.00264 19L5.28213 17.7161C5.67335 17.3235 5.67335 16.687 5.28212 16.2944C4.8909 15.9019 4.2566 15.9019 3.86537 16.2944L1.59369 18.574L1.58051 18.5873C0.803938 19.3724 0.805727 20.6406 1.58588 21.4234L3.86035 23.7058C4.25133 24.0981 4.88523 24.0981 5.2762 23.7058C5.66718 23.3134 5.66718 22.6773 5.2762 22.285L3.99563 21L19 21C20.6568 21 22 19.6569 22 18L22 11Z" fill="#43dfc5"/></svg><span class="topbar-label">Switch</span></button>
+          ${switchProfileAction}
           <button id="open-profile" class="profile-trigger" aria-label="Open profile">
             ${profileAvatar(photoURL, profileName)}
           </button>
@@ -394,7 +405,6 @@ export function renderOnboardingProfile(user) {
             </div>
           </label>
           <button id="complete-onboarding" class="primary">Save and Continue</button>
-          <button type="button" class="ghost" onclick="window.location.href='budget.html'">Open nORDER Budget Tool</button>
           <div id="onboarding-error" class="help danger"></div>
         </div>
       </section>
@@ -423,7 +433,6 @@ export function renderWelcome() {
             <input id="welcome-home" value="${escapeHtml(state.prefs.home_name)}" maxlength="30" />
           </label>
           <button id="welcome-start" class="primary">Open Inventory Hub</button>
-          <button type="button" class="ghost" onclick="window.location.href='budget.html'">Open nORDER Budget Tool</button>
           <button id="welcome-reset" class="ghost">Reset Demo Inventory Data</button>
         </div>
       </section>
@@ -1005,6 +1014,23 @@ export function renderShopping() {
 
 export function renderSettings() {
   const state = getState();
+  const localMode = isDesktopLocalMode();
+  const collaborationCard = `
+    <section class="section-card" style="margin-top:10px;">
+      <h2 style="margin:0 0 8px 0;">${localMode ? "Workspace Tools" : "Collaboration"}</h2>
+      ${
+        localMode
+          ? `<p class="help">Local mode keeps your data on this device. Cloud team access is unavailable, but local activity history remains available.</p>`
+          : ""
+      }
+      <div class="collaboration-actions">
+        <button id="view-collaboration-settings" class="primary" ${
+          localMode ? "disabled aria-disabled=\"true\" title=\"Cloud team tools require sign-in\"" : ""
+        }>${localMode ? "Team Access (Cloud)" : "Manage Team Access"}</button>
+        <button id="view-activity-log">${localMode ? "View Local Activity" : "View Change History"}</button>
+      </div>
+    </section>
+    `;
   return shellLayout(
     `
     <div class="row space" style="margin-bottom:10px;">
@@ -1118,13 +1144,7 @@ export function renderSettings() {
       </div>
     </section>
 
-    <section class="section-card" style="margin-top:10px;">
-      <h2 style="margin:0 0 8px 0;">Collaboration</h2>
-      <div class="collaboration-actions">
-        <button id="view-collaboration-settings" class="primary">Manage Team Access</button>
-        <button id="view-activity-log">View Change History</button>
-      </div>
-    </section>
+    ${collaborationCard}
 
   `,
     "/settings"
@@ -1183,6 +1203,298 @@ export function renderActivityLog(logs) {
   );
 }
 
+export function renderPublicLandingReplica() {
+  const localMode = isDesktopLocalMode();
+  const state = getState();
+  const categories = Array.isArray(state.categories) && state.categories.length
+    ? state.categories
+    : [{ name: "Unsorted" }];
+  const previewItems = [
+    { name: "Paper Towels", category: "Home", stock: "Almost Empty", action: "Add to Restock" },
+    { name: "Olive Oil", category: "Kitchen", stock: "Half", action: "Add to Restock" },
+    { name: "Printer Ink", category: "Office", stock: "Almost Empty", action: "Add to Restock" },
+  ];
+  const previewRestock = [
+    { name: "Dish Soap", qty: "2 bottles", vendor: "Market" },
+    { name: "AA Batteries", qty: "1 pack", vendor: "Hardware" },
+    { name: "Copy Paper", qty: "3 reams", vendor: "Office" },
+  ];
+  const budgetSnapshot = {
+    monthlyIncome: "$8,950",
+    monthlyExpenses: "$5,740",
+    projectedRemaining: "$3,210",
+    dueSoon: 6,
+  };
+  const budgetCategories = [
+    { label: "Housing", value: "$2,100", width: 92 },
+    { label: "Operations", value: "$1,280", width: 66 },
+    { label: "Food + Supplies", value: "$930", width: 48 },
+    { label: "Subscriptions", value: "$420", width: 28 },
+  ];
+  const pulseStats = {
+    total: 128,
+    restock: 19,
+    low: 12,
+    expiring: 8,
+  };
+  const trackedTotal = Math.max(pulseStats.total, 1);
+  const restockPercent = Math.min(100, Math.round((pulseStats.restock / trackedTotal) * 100));
+  const lowPercent = Math.min(100, Math.round((pulseStats.low / trackedTotal) * 100));
+  const expiringPercent = Math.min(100, Math.round((pulseStats.expiring / trackedTotal) * 100));
+  const attentionScore = Math.min(
+    100,
+    Math.round(((pulseStats.restock * 1.05 + pulseStats.low * 1.3 + pulseStats.expiring * 1.15) / (trackedTotal * 2.3)) * 100)
+  );
+  const attentionState = pulseStats.expiring ? "watch" : attentionScore >= 34 ? "watch" : "calm";
+  const lowGlow = Math.min(36, 8 + Math.round((pulseStats.low / trackedTotal) * 36));
+  const pulseAuthRoute = localMode ? "/dashboard" : "/login?mode=signup&intent=add-item";
+  const landingAuthActions = localMode
+    ? `<button id="landing-open-local-btn" class="primary">Open Local App</button>`
+    : `
+          <button id="landing-signin-btn" class="ghost">Sign In</button>
+          <button id="landing-signup-btn" class="primary">Sign Up</button>
+        `;
+  const landingPreviewCopy = localMode
+    ? "Desktop local mode is active. Start managing inventory on this device now."
+    : "Try the inventory workspace before creating an account";
+  const trendPoints = [
+    { id: "restock", label: "Restock", value: restockPercent, count: pulseStats.restock, x: 8, route: pulseAuthRoute },
+    { id: "low", label: "Low", value: lowPercent, count: pulseStats.low, x: 50, route: pulseAuthRoute },
+    { id: "expiring", label: "Expiring", value: expiringPercent, count: pulseStats.expiring, x: 92, route: pulseAuthRoute },
+  ];
+  const trendCoordinates = trendPoints.map((point) => ({
+    ...point,
+    y: Math.max(8, 92 - Math.round(point.value * 0.72)),
+  }));
+  const trendPath =
+    trendCoordinates.length >= 3
+      ? `M ${trendCoordinates[0].x} ${trendCoordinates[0].y} Q ${Math.round((trendCoordinates[0].x + trendCoordinates[1].x) / 2)} ${trendCoordinates[0].y} ${trendCoordinates[1].x} ${trendCoordinates[1].y} Q ${Math.round((trendCoordinates[1].x + trendCoordinates[2].x) / 2)} ${trendCoordinates[2].y} ${trendCoordinates[2].x} ${trendCoordinates[2].y}`
+      : trendCoordinates.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
+
+  return `
+    <div class="app-shell landing-replica-shell">
+      <header class="topbar">
+        <div>
+          <div class="brand"><span class="brand-n">n</span>ORDER</div>
+          <div class="muted">${landingPreviewCopy}</div>
+        </div>
+        <div class="row" style="gap:8px;">
+          <button type="button" class="ghost budget-launch-btn" data-landing-tab="budget" aria-label="Preview nORDER bUDGET Tool" title="bUDGET Preview">
+            <span class="budget-launch-glyph" aria-hidden="true">$</span><span class="topbar-label">bUDGET</span>
+          </button>
+          ${landingAuthActions}
+        </div>
+      </header>
+
+      <main class="page">
+        <section class="section-card inventory-pulse-card inventory-pulse-${attentionState} landing-replica-panel" data-landing-panel="home" style="margin-top:10px;--low-glow:${lowGlow}%;">
+          <div class="inventory-pulse-head">
+            <div>
+              <p class="inventory-pulse-kicker">Inventory Pulse</p>
+              <h2 class="inventory-pulse-title">Home + business inventory at a glance</h2>
+              <p class="muted" style="margin:6px 0 0;">Catch what needs restocking before missed meals, production delays, or duplicate buys.</p>
+            </div>
+          </div>
+
+          <div class="inventory-pulse-layout">
+            <a class="inventory-pulse-core" href="#${pulseAuthRoute}" style="--attention:${attentionScore}%" aria-label="Create an account to start tracking items">
+              <div class="inventory-pulse-core-inner">
+                <span class="inventory-pulse-core-value">${pulseStats.total}</span>
+                <span class="inventory-pulse-core-label">Items Tracked</span>
+              </div>
+            </a>
+
+            <div class="inventory-pulse-graph" role="img" aria-label="Restock ${pulseStats.restock}, low stock ${pulseStats.low}, expiring soon ${pulseStats.expiring} out of ${pulseStats.total} total items">
+              <a class="inventory-pulse-row" href="#${pulseAuthRoute}" aria-label="Create an account to use restock list">
+                <div class="inventory-pulse-row-label">Buy Next</div>
+                <div class="inventory-pulse-row-value">${pulseStats.restock}</div>
+                <div class="inventory-pulse-track"><span class="inventory-pulse-fill restock" style="width:${restockPercent}%;"></span></div>
+              </a>
+              <a class="inventory-pulse-row" href="#${pulseAuthRoute}" aria-label="Create an account to track low stock items">
+                <div class="inventory-pulse-row-label">Running Low</div>
+                <div class="inventory-pulse-row-value warning">${pulseStats.low}</div>
+                <div class="inventory-pulse-track"><span class="inventory-pulse-fill low" style="width:${lowPercent}%;"></span></div>
+              </a>
+              <a class="inventory-pulse-row" href="#${pulseAuthRoute}" aria-label="Create an account to set expiry alerts">
+                <div class="inventory-pulse-row-label">Expiring Soon</div>
+                <div class="inventory-pulse-row-value warning">${pulseStats.expiring}</div>
+                <div class="inventory-pulse-track"><span class="inventory-pulse-fill expiring" style="width:${expiringPercent}%;"></span></div>
+              </a>
+            </div>
+          </div>
+
+          <div class="inventory-pulse-curve-wrap" aria-hidden="true">
+            <svg class="inventory-pulse-curve" viewBox="0 0 100 100" preserveAspectRatio="none" role="presentation">
+              <defs>
+                <linearGradient id="inventoryPulseCurve" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stop-color="#44bc9f" />
+                  <stop offset="55%" stop-color="#f0be68" />
+                  <stop offset="100%" stop-color="#ed8f5d" />
+                </linearGradient>
+              </defs>
+              <path class="inventory-pulse-curve-area" d="${trendPath} L 92 100 L 8 100 Z"></path>
+              ${trendCoordinates
+                .map(
+                  (point) => `
+                <ellipse class="inventory-pulse-point ${point.id}" cx="${point.x}" cy="${point.y}" rx="2" ry="2.4"></ellipse>
+              `
+                )
+                .join("")}
+              <path class="inventory-pulse-curve-line" d="${trendPath}"></path>
+            </svg>
+            <div class="inventory-pulse-point-labels">
+              ${trendCoordinates
+                .map(
+                  (point) => `
+                <a class="inventory-pulse-point-label ${point.id}" href="#${escapeAttr(point.route)}">${escapeHtml(point.label)}: ${point.count}</a>
+              `
+                )
+                .join("")}
+            </div>
+          </div>
+        </section>
+
+        <section class="section-card landing-replica-panel" data-landing-panel="inventory" style="margin-top:10px;" hidden>
+          <div class="row space" style="margin-bottom:8px;">
+            <h1>Inventory Workspace</h1>
+            <button id="landing-toggle-item-form">Add New</button>
+          </div>
+
+          <div id="landing-item-form" class="dialog">
+            <div class="grid">
+              <label class="field" for="landing-item-name">
+                <span class="field-label">Item name</span>
+                <input id="landing-item-name" placeholder="e.g. Coffee Beans" maxlength="50" />
+              </label>
+              <label class="field" for="landing-item-category">
+                <span class="field-label">Category</span>
+                <select id="landing-item-category">
+                  ${categories.map((c) => `<option>${escapeHtml(c.name)}</option>`).join("")}
+                </select>
+              </label>
+              <label class="field" for="landing-item-quantity">
+                <span class="field-label">Quantity</span>
+                <input id="landing-item-quantity" type="number" min="1" max="24" value="1" />
+              </label>
+              <button id="landing-save-item" class="primary">Save Inventory Item</button>
+            </div>
+          </div>
+
+          <div class="list" style="margin-top:10px;">
+            ${previewItems
+              .map(
+                (item) => `
+              <article class="item">
+                <div class="item-header">
+                  <div>
+                    <div class="item-name">${escapeHtml(item.name)}</div>
+                    <div class="row">
+                      <span class="badge">${escapeHtml(item.category)}</span>
+                    </div>
+                  </div>
+                  <div class="row">
+                    <button class="ghost" disabled>Edit</button>
+                  </div>
+                </div>
+                <div class="row space">
+                  <span class="help">Stock status: ${escapeHtml(item.stock)}</span>
+                  <button class="landing-auth-required-action" type="button">${escapeHtml(item.action)}</button>
+                </div>
+              </article>
+            `
+              )
+              .join("")}
+          </div>
+        </section>
+
+        <section class="section-card landing-replica-panel" data-landing-panel="restock" style="margin-top:10px;" hidden>
+          <div class="row space" style="margin-bottom:8px;">
+            <h1>Restock Queue</h1>
+            <button class="landing-auth-required-action" type="button">Mark Purchased</button>
+          </div>
+          <div class="list">
+            ${previewRestock
+              .map(
+                (entry) => `
+              <article class="item">
+                <div class="item-header">
+                  <div>
+                    <div class="item-name">${escapeHtml(entry.name)}</div>
+                    <div class="help">${escapeHtml(entry.qty)} · Preferred: ${escapeHtml(entry.vendor)}</div>
+                  </div>
+                  <button class="landing-auth-required-action" type="button">Buy</button>
+                </div>
+              </article>
+            `
+              )
+              .join("")}
+          </div>
+        </section>
+
+        <section class="section-card landing-replica-panel" data-landing-panel="settings" style="margin-top:10px;" hidden>
+          <h1>Settings Preview</h1>
+          <p class="muted">Team access, change history, profile settings, and inventory preferences live here.</p>
+          <div class="row" style="margin-top:10px;gap:8px;flex-wrap:wrap;">
+            <button class="landing-auth-required-action" type="button">Manage Team Access</button>
+            <button class="landing-auth-required-action" type="button">View Change History</button>
+          </div>
+        </section>
+
+        <section class="section-card landing-replica-panel landing-budget-panel" data-landing-panel="budget" style="margin-top:10px;" hidden>
+          <div class="row space" style="margin-bottom:8px;">
+            <h1>bUDGET Command Center</h1>
+            <button class="landing-auth-required-action" type="button">Open bUDGET Tool</button>
+          </div>
+          <p class="muted">Track income, monthly expenses, and cash flow in one place for home or business planning.</p>
+
+          <div class="landing-budget-grid" style="margin-top:10px;">
+            <article class="landing-budget-card">
+              <span class="help">Monthly Income</span>
+              <strong>${budgetSnapshot.monthlyIncome}</strong>
+            </article>
+            <article class="landing-budget-card">
+              <span class="help">Monthly Expenses</span>
+              <strong>${budgetSnapshot.monthlyExpenses}</strong>
+            </article>
+            <article class="landing-budget-card">
+              <span class="help">Projected Remaining</span>
+              <strong class="success">${budgetSnapshot.projectedRemaining}</strong>
+            </article>
+            <article class="landing-budget-card">
+              <span class="help">Due This Week</span>
+              <strong>${budgetSnapshot.dueSoon}</strong>
+            </article>
+          </div>
+
+          <div class="landing-budget-bars" style="margin-top:12px;">
+            ${budgetCategories
+              .map(
+                (category) => `
+              <button class="landing-auth-required-action landing-budget-bar" type="button" aria-label="Open budget category ${escapeAttr(category.label)}">
+                <span class="landing-budget-bar-label">${escapeHtml(category.label)}</span>
+                <span class="landing-budget-bar-value">${escapeHtml(category.value)}</span>
+                <span class="landing-budget-bar-track"><span style="width:${category.width}%;"></span></span>
+              </button>
+            `
+              )
+              .join("")}
+          </div>
+        </section>
+      </main>
+
+      <nav class="bottom-nav">
+        <div class="bottom-nav-inner">
+          <a class="nav-link active" href="#/" data-landing-tab="home">Home</a>
+          <a class="nav-link" href="#/" data-landing-tab="inventory">Inventory</a>
+          <a class="nav-link" href="#/" data-landing-tab="restock">Restock</a>
+          <a class="nav-link" href="#/" data-landing-tab="settings">Settings</a>
+          <a class="nav-link" href="#/about-welcome">About</a>
+        </div>
+      </nav>
+    </div>
+  `;
+}
+
 export function renderLogin() {
   const recentAccounts = getRecentAccounts();
   const hasRecentAccounts = recentAccounts.length > 0;
@@ -1200,7 +1512,12 @@ export function renderLogin() {
         <div class="landing-orb landing-orb-c" aria-hidden="true"></div>
 
         <div class="landing-hero-inner">
-          <img class="landing-logo" src="nORDER%20LOGO.png" alt="nORDER logo" loading="eager" />
+          <div class="landing-logo-cluster" aria-label="nORDER logo and bUDGET logo">
+            <img class="landing-logo" src="nORDER%20LOGO.png" alt="nORDER logo" loading="eager" />
+            <div class="landing-logo-placeholder" aria-label="bUDGET logo">
+              <img class="landing-logo-placeholder-image" src="bUDGET%20Logo.svg" alt="bUDGET logo" loading="eager" />
+            </div>
+          </div>
 
           <div class="landing-text-block">
             <h1 class="landing-headline">Keep every space <span class="brand-n">n</span>ORDER</h1>
@@ -1264,6 +1581,7 @@ export function renderLogin() {
             <div>
               <h1 style="margin:0 0 4px;"><span class="brand-n">n</span>ORDER</h1>
               <p class="muted" style="margin:0;">Inventory management from home to business and beyond</p>
+              <p class="help" style="margin:6px 0 0;"><a href="#/" style="color:var(--primary);">Explore the interactive landing preview</a></p>
             </div>
           `}
 
@@ -1366,10 +1684,10 @@ export function renderLogin() {
         </section>
 
         <div class="landing-ph-badge landing-ph-badge--desktop">
-          <a href="https://www.producthunt.com/products/norder?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-norder" target="_blank" rel="noopener noreferrer"><img alt="nORDER - Inventory Management from Anywhere | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1129050&theme=light&t=1776900692227" /></a>
+          <a href="https://www.producthunt.com/" target="_blank" rel="noopener noreferrer"><img alt="nORDER - Inventory Management from Anywhere | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1129050&theme=light&t=1776900692227" /></a>
         </div>
         <div class="landing-reddit-link landing-reddit-link--desktop">
-          <a href="https://www.reddit.com/r/getnorder/" target="_blank" rel="noopener noreferrer" class="landing-reddit-anchor">
+          <a href="https://www.reddit.com/" target="_blank" rel="noopener noreferrer" class="landing-reddit-anchor">
             <img src="https://www.redditstatic.com/desktop2x/img/favicon/android-icon-192x192.png" alt="Reddit" width="20" height="20" />
             <span>follow nORDER</span>
           </a>
@@ -1380,10 +1698,10 @@ export function renderLogin() {
         </div>
 
         <div class="landing-ph-badge landing-ph-badge--mobile">
-          <a href="https://www.producthunt.com/products/norder?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-norder" target="_blank" rel="noopener noreferrer"><img alt="nORDER - Inventory Management from Anywhere | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1129050&theme=light&t=1776900692227" /></a>
+          <a href="https://www.producthunt.com/" target="_blank" rel="noopener noreferrer"><img alt="nORDER - Inventory Management from Anywhere | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1129050&theme=light&t=1776900692227" /></a>
         </div>
         <div class="landing-reddit-link landing-reddit-link--mobile">
-          <a href="https://www.reddit.com/r/getnorder/" target="_blank" rel="noopener noreferrer" class="landing-reddit-anchor">
+          <a href="https://www.reddit.com/" target="_blank" rel="noopener noreferrer" class="landing-reddit-anchor">
             <img src="https://www.redditstatic.com/desktop2x/img/favicon/android-icon-192x192.png" alt="Reddit" width="20" height="20" />
             <span>follow nORDER</span>
           </a>
@@ -1475,6 +1793,8 @@ export function renderTermsPage() {
 }
 
 export function renderWelcomeTermsPage(isSignedIn) {
+  const backRoute = isDesktopLocalMode() ? "/" : "/login";
+  const backLabel = isDesktopLocalMode() ? "Back to Home" : "Back to Sign In";
   return `
     <div class="welcome about-page-wrap">
       <section class="welcome-card about-page-card">
@@ -1500,7 +1820,7 @@ export function renderWelcomeTermsPage(isSignedIn) {
         </section>
 
         <div class="row" style="justify-content:space-between;gap:10px;flex-wrap:wrap;">
-          <a href="#/login" class="ghost about-back-link">Back to Sign In</a>
+          <a href="#${backRoute}" class="ghost about-back-link">${backLabel}</a>
         </div>
       </section>
       <img class="about-logo-plain" src="nORDER%20LOGO.png" alt="nORDER Logo" loading="lazy" />
@@ -1509,6 +1829,8 @@ export function renderWelcomeTermsPage(isSignedIn) {
 }
 
 export function renderWelcomeAboutPage(isSignedIn) {
+  const backRoute = isDesktopLocalMode() ? "/" : "/login";
+  const backLabel = isDesktopLocalMode() ? "Back to Home" : "Back to Sign In";
   return `
     <div class="welcome about-page-wrap">
       <section class="welcome-card about-page-card">
@@ -1555,7 +1877,7 @@ export function renderWelcomeAboutPage(isSignedIn) {
         </section>
 
         <div class="row" style="justify-content:space-between;gap:10px;flex-wrap:wrap;">
-          <a href="#/login" class="ghost about-back-link">Back to Sign In</a>
+          <a href="#${backRoute}" class="ghost about-back-link">${backLabel}</a>
         </div>
       </section>
       <img class="about-logo-plain" src="nORDER%20LOGO.png" alt="nORDER Logo" loading="lazy" />
@@ -1623,7 +1945,7 @@ export function renderProfileSettings(user) {
       <section class="welcome-card">
         <div class="row space" style="margin-bottom:10px;">
           <h1>Profile Settings</h1>
-          <button onclick="window.location.hash='#/inventories'">Back</button>
+          <button onclick="window.location.hash='${isDesktopLocalMode() ? "#/dashboard" : "#/inventories"}'">Back</button>
         </div>
         <p class="muted">Manage your account settings before opening an inventory.</p>
 

@@ -56,7 +56,18 @@
         ]
       }
     ],
+    "redirects": [
+      {
+        "regex": "^/budget\\.html$",
+        "destination": "/budget",
+        "type": 301
+      }
+    ],
     "rewrites": [
+      {
+        "source": "budget",
+        "destination": "/budget.html"
+      },
       {
         "source": "**",
         "destination": "/index.html"

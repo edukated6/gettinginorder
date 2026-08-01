@@ -45,17 +45,24 @@ const RESTOCK_PROMPT_MODAL_ID = "norder-restock-prompt";
 const TUTORIAL_OVERLAY_ID = "norder-beginner-tutorial";
 const TUTORIAL_HIGHLIGHT_CLASS = "tutorial-target-highlight";
 const TUTORIAL_SEEN_BY_UID_KEY = "norder_tutorial_seen_by_uid";
+const TUTORIAL_SEEN_LOCAL_KEY = "norder_tutorial_seen_local";
 const TUTORIAL_VERSION = 2;
 let pendingSearchFocus = null;
 let filterIndicatorHideTimer = null;
 let saveNoticeHideTimer = null;
 let quickEditKeydownHandler = null;
 let pageFloatingActionCleanup = null;
+const LANDING_ACTIVE_TAB_KEY = "norder_landing_active_tab";
 const tutorialState = {
   active: false,
   stepIndex: 0,
 };
-const TUTORIAL_STEPS = [
+
+function isDesktopLocalMode() {
+  return typeof window !== "undefined" && Boolean(window.__NORDER_DESKTOP_LOCAL__);
+}
+
+const BASE_TUTORIAL_STEPS = [
   {
     title: "Welcome to nORDER",
     body: "This top area is your control center. Use the bottom bar to move between Inventory, Restock, Home, Settings, and About.",
@@ -67,6 +74,7 @@ const TUTORIAL_STEPS = [
     body: "Use this switch icon to move between inventory spaces. You can create, join, open, leave, or delete spaces from My Inventory Spaces.",
     route: "/dashboard",
     selector: "#switch-profile",
+    cloudOnly: true,
   },
   {
     title: "Add Inventory Fast",
@@ -100,6 +108,7 @@ const TUTORIAL_STEPS = [
     route: "/settings",
     selector: "#view-collaboration-settings",
     overlayPosition: "top",
+    cloudOnly: true,
   },
   {
     title: "Accountability History",
@@ -107,6 +116,7 @@ const TUTORIAL_STEPS = [
     route: "/settings",
     selector: "#view-activity-log",
     overlayPosition: "top",
+    cloudOnly: true,
   },
   {
     title: "Inventory Preferences",
@@ -128,9 +138,33 @@ const TUTORIAL_STEPS = [
   },
 ];
 
+function getTutorialSteps() {
+  if (!isDesktopLocalMode()) return BASE_TUTORIAL_STEPS;
+  return BASE_TUTORIAL_STEPS.filter((step) => !step.cloudOnly);
+}
+
 function deepClone(value) {
   if (typeof structuredClone === "function") return structuredClone(value);
   return JSON.parse(JSON.stringify(value));
+}
+
+function toDomainOnlyUrl(rawUrl) {
+  try {
+    const parsed = new URL(String(rawUrl || ""), window.location.origin);
+    if (!/^https?:$/i.test(parsed.protocol)) return "#";
+    return `${parsed.protocol}//${parsed.host}/`;
+  } catch (_) {
+    return "#";
+  }
+}
+
+function toDomainLabel(rawUrl, fallback = "Website") {
+  try {
+    const parsed = new URL(String(rawUrl || ""), window.location.origin);
+    return parsed.hostname.replace(/^www\./i, "") || fallback;
+  } catch (_) {
+    return fallback;
+  }
 }
 
 function safeUuid() {
@@ -141,7 +175,8 @@ function safeUuid() {
 }
 
 function getTutorialStep() {
-  return TUTORIAL_STEPS[tutorialState.stepIndex] || null;
+  const steps = getTutorialSteps();
+  return steps[tutorialState.stepIndex] || null;
 }
 
 function readTutorialSeenByUid() {
@@ -165,7 +200,14 @@ function writeTutorialSeenByUid(data) {
 function hasSeenTutorialForCurrentUser() {
   const user = getCurrentUser();
   const uid = String((user && user.uid) || "").trim();
-  if (!uid) return false;
+  if (!uid) {
+    if (!isDesktopLocalMode()) return false;
+    try {
+      return Number(localStorage.getItem(TUTORIAL_SEEN_LOCAL_KEY) || 0) >= TUTORIAL_VERSION;
+    } catch (_error) {
+      return false;
+    }
+  }
   const map = readTutorialSeenByUid();
   return Number(map[uid]) >= TUTORIAL_VERSION;
 }
@@ -173,7 +215,15 @@ function hasSeenTutorialForCurrentUser() {
 function markTutorialSeenForCurrentUser() {
   const user = getCurrentUser();
   const uid = String((user && user.uid) || "").trim();
-  if (!uid) return;
+  if (!uid) {
+    if (!isDesktopLocalMode()) return;
+    try {
+      localStorage.setItem(TUTORIAL_SEEN_LOCAL_KEY, String(TUTORIAL_VERSION));
+    } catch (_error) {
+      // Ignore local storage failures.
+    }
+    return;
+  }
   const map = readTutorialSeenByUid();
   map[uid] = TUTORIAL_VERSION;
   writeTutorialSeenByUid(map);
@@ -232,14 +282,14 @@ function renderTutorialOverlay() {
       <h2 id="tutorial-title" class="tutorial-title">${step.title}</h2>
       <p class="tutorial-copy">${step.body}</p>
       <div class="tutorial-progress-wrap" aria-hidden="true">
-        <div class="tutorial-progress-bar"><span style="width:${Math.round(((tutorialState.stepIndex + 1) / TUTORIAL_STEPS.length) * 100)}%;"></span></div>
-        <div class="tutorial-progress-label">Step ${tutorialState.stepIndex + 1} of ${TUTORIAL_STEPS.length}</div>
+        <div class="tutorial-progress-bar"><span style="width:${Math.round(((tutorialState.stepIndex + 1) / getTutorialSteps().length) * 100)}%;"></span></div>
+        <div class="tutorial-progress-label">Step ${tutorialState.stepIndex + 1} of ${getTutorialSteps().length}</div>
       </div>
       <div class="tutorial-actions">
         <button type="button" id="tutorial-skip" class="ghost">Skip</button>
         <button type="button" id="tutorial-back" class="ghost" ${tutorialState.stepIndex === 0 ? "disabled" : ""}>Back</button>
         ${step.action === "open-add-form" ? `<button type="button" id="tutorial-step-action" class="ghost">${step.actionLabel || "Try it"}</button>` : ""}
-        <button type="button" id="tutorial-next" class="primary">${tutorialState.stepIndex === TUTORIAL_STEPS.length - 1 ? "Finish" : "Next"}</button>
+        <button type="button" id="tutorial-next" class="primary">${tutorialState.stepIndex === getTutorialSteps().length - 1 ? "Finish" : "Next"}</button>
       </div>
     </section>
   `;
@@ -275,7 +325,7 @@ function renderTutorialOverlay() {
   const nextBtn = document.getElementById("tutorial-next");
   if (nextBtn) {
     nextBtn.addEventListener("click", () => {
-      if (tutorialState.stepIndex >= TUTORIAL_STEPS.length - 1) {
+      if (tutorialState.stepIndex >= getTutorialSteps().length - 1) {
         closeTutorial();
         return;
       }
@@ -287,7 +337,8 @@ function renderTutorialOverlay() {
 }
 
 function setTutorialStep(stepIndex) {
-  const boundedStep = Math.max(0, Math.min(TUTORIAL_STEPS.length - 1, Number(stepIndex) || 0));
+  const steps = getTutorialSteps();
+  const boundedStep = Math.max(0, Math.min(steps.length - 1, Number(stepIndex) || 0));
   tutorialState.stepIndex = boundedStep;
   tutorialState.active = true;
 
@@ -2226,6 +2277,92 @@ function syncUnitStockLevelFields(preferredLevels, options = {}) {
   syncInventoryStockLevelAvailability({ unitLevels: normalizedLevels });
 }
 
+function redirectPublicLandingToAuth(mode = "login") {
+  if (isDesktopLocalMode()) {
+    setRoute("/dashboard");
+    return;
+  }
+  const authMode = mode === "signup" ? "signup" : "login";
+  setRoute(`/login?mode=${authMode}&intent=add-item`);
+}
+
+export function wirePublicLandingEvents() {
+  const allowedTabs = new Set(["home", "inventory", "restock", "settings", "budget"]);
+
+  const readSavedLandingTab = () => {
+    try {
+      const saved = String(sessionStorage.getItem(LANDING_ACTIVE_TAB_KEY) || "").trim();
+      return allowedTabs.has(saved) ? saved : "home";
+    } catch (_error) {
+      return "home";
+    }
+  };
+
+  const setLandingTab = (tabName) => {
+    const raw = String(tabName || "home").trim() || "home";
+    const next = allowedTabs.has(raw) ? raw : "home";
+
+    try {
+      sessionStorage.setItem(LANDING_ACTIVE_TAB_KEY, next);
+    } catch (_error) {
+      // Ignore storage failures and continue with in-memory tab state.
+    }
+
+    document.querySelectorAll("[data-landing-tab]").forEach((button) => {
+      const active = button.getAttribute("data-landing-tab") === next;
+      button.classList.toggle("active", active);
+      if (button.hasAttribute("aria-pressed")) {
+        button.setAttribute("aria-pressed", active ? "true" : "false");
+      }
+    });
+
+    document.querySelectorAll("[data-landing-panel]").forEach((panel) => {
+      panel.hidden = panel.getAttribute("data-landing-panel") !== next;
+    });
+  };
+
+  document.querySelectorAll("[data-landing-tab]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      if (event) event.preventDefault();
+      setLandingTab(button.getAttribute("data-landing-tab") || "home");
+    });
+  });
+
+  const signinBtn = document.getElementById("landing-signin-btn");
+  if (signinBtn) {
+    signinBtn.addEventListener("click", () => redirectPublicLandingToAuth("login"));
+  }
+
+  const signupBtn = document.getElementById("landing-signup-btn");
+  if (signupBtn) {
+    signupBtn.addEventListener("click", () => redirectPublicLandingToAuth("signup"));
+  }
+
+  const openLocalBtn = document.getElementById("landing-open-local-btn");
+  if (openLocalBtn) {
+    openLocalBtn.addEventListener("click", () => setRoute("/dashboard"));
+  }
+
+  const toggleBtn = document.getElementById("landing-toggle-item-form");
+  const form = document.getElementById("landing-item-form");
+  if (toggleBtn && form) {
+    toggleBtn.addEventListener("click", () => {
+      form.classList.toggle("open", !form.classList.contains("open"));
+    });
+  }
+
+  const saveBtn = document.getElementById("landing-save-item");
+  if (saveBtn) {
+    saveBtn.addEventListener("click", () => redirectPublicLandingToAuth("signup"));
+  }
+
+  document.querySelectorAll(".landing-auth-required-action").forEach((button) => {
+    button.addEventListener("click", () => redirectPublicLandingToAuth("signup"));
+  });
+
+  setLandingTab(readSavedLandingTab());
+}
+
 export function wireWelcomeEvents(onRender) {
   const start = document.getElementById("welcome-start");
   const reset = document.getElementById("welcome-reset");
@@ -2398,8 +2535,10 @@ export function wireSharedEvents(onRender) {
         const item = state.items.find((i) => i.id === itemId);
         const itemName = item ? item.name : '';
         chips.innerHTML = stores.map((store) => {
-          const url = (window.buildStoreWebsiteSearch ? window.buildStoreWebsiteSearch(store, itemName).url : '#');
-          return `<a class="store-chip" href="${url}" target="_blank" rel="noopener" title="${store.name} (${store.category_label}${store.address ? ' | ' + store.address : ''})">${store.name}<span class="chip-meta">${store.category_label}${store.distance_m ? ' · ' + (store.distance_m < 1000 ? Math.round(store.distance_m) + 'm' : (store.distance_m/1609.344).toFixed(1) + 'mi') : ''}</span></a>`;
+          const searchResult = window.buildStoreWebsiteSearch ? window.buildStoreWebsiteSearch(store, itemName) : null;
+          const domainUrl = toDomainOnlyUrl(searchResult && searchResult.url);
+          const domainLabel = toDomainLabel(searchResult && searchResult.url, store.name);
+          return `<a class="store-chip" href="${domainUrl}" target="_blank" rel="noopener" title="${domainLabel} (${store.category_label}${store.address ? ' | ' + store.address : ''})">${domainLabel}<span class="chip-meta">${store.category_label}${store.distance_m ? ' · ' + (store.distance_m < 1000 ? Math.round(store.distance_m) + 'm' : (store.distance_m/1609.344).toFixed(1) + 'mi') : ''}</span></a>`;
         }).join('');
       } catch (err) {
         chips.innerHTML = '<span class="help">Failed to load stores.</span>';
@@ -2435,7 +2574,7 @@ export function wireSharedEvents(onRender) {
 
   const switchProfileBtn = document.getElementById("switch-profile");
   if (switchProfileBtn) switchProfileBtn.addEventListener("click", () => {
-    setRoute("/inventories");
+    setRoute(isDesktopLocalMode() ? "/settings" : "/inventories");
   });
 
   if (!delegatedHandlersBound) {

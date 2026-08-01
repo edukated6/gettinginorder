@@ -1,4 +1,4 @@
-const CACHE_VERSION = "norder-static-v3";
+const CACHE_VERSION = "norder-static-v5";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -59,6 +59,23 @@ self.addEventListener("fetch", (event) => {
   }
 
   if (url.origin !== self.location.origin) return;
+
+  const networkFirstAsset = /\.(?:html|js|css)(?:\?|$)/i.test(url.pathname);
+
+  if (networkFirstAsset) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response && response.status === 200 && response.type === "basic") {
+            const responseClone = response.clone();
+            caches.open(CACHE_VERSION).then((cache) => cache.put(request, responseClone));
+          }
+          return response;
+        })
+        .catch(() => caches.match(request))
+    );
+    return;
+  }
 
   event.respondWith(
     caches.match(request).then((cached) => {

@@ -2,12 +2,36 @@
   "name": "norder",
   "version": "1.0.0",
   "description": "Collaborative inventory management PWA",
+  "main": "electron/main.js",
   "scripts": {
     "build": "node build.js",
-    "start": "npx http-server public -p 8080"
+    "start": "npx http-server public -p 8080",
+    "electron:start": "electron .",
+    "electron:dist": "npm run build && electron-builder --win --config.electronDist=node_modules/electron/dist"
   },
   "devDependencies": {
     "csso": "^5.0.5",
+    "electron": "^32.1.2",
+    "electron-builder": "^25.0.6",
     "esbuild": "^0.28.0"
+  },
+  "build": {
+    "appId": "com.norder.desktop",
+    "productName": "nORDER",
+    "files": [
+      "public/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    }
   }
 }

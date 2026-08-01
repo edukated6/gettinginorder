@@ -45,6 +45,12 @@
         ".read": "auth != null && $userId === auth.uid",
         ".write": "auth != null && $userId === auth.uid"
       }
+    },
+    "budgetUsers": {
+      "$userId": {
+        ".read": "auth != null && $userId === auth.uid",
+        ".write": "auth != null && $userId === auth.uid"
+      }
     }
   }
 }

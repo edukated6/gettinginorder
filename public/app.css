@@ -2555,11 +2555,38 @@ a.about-back-link.ghost {
   animation: landingFadeUp 0.55s ease both;
 }
 
+.landing-logo-cluster {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  width: fit-content;
+}
+
 .landing-logo {
   width: min(200px, 78%);
   height: auto;
   filter: drop-shadow(0 10px 26px rgba(73, 182, 158, 0.4));
   animation: landingLogoFloat 5.5s ease-in-out infinite;
+}
+
+.landing-logo-placeholder {
+  width: clamp(150px, 18vw, 196px);
+  aspect-ratio: 1 / 1;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  animation: landingLogoFloat 5.5s ease-in-out infinite 0.45s;
+}
+
+.landing-logo-placeholder-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.22));
 }
 
 @keyframes landingLogoFloat {
@@ -2903,8 +2930,17 @@ a.about-back-link.ghost {
     text-align: center;
   }
 
+  .landing-logo-cluster {
+    flex-direction: column;
+    gap: 14px;
+  }
+
   .landing-logo {
     width: min(170px, 66vw);
+  }
+
+  .landing-logo-placeholder {
+    width: min(182px, 56vw);
   }
 
   .landing-headline {
@@ -3440,18 +3476,6 @@ a.about-back-link.ghost {
   gap: 10px;
 }
 
-.inv-check-skipped-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--surface-muted) 82%, var(--border));
-  color: var(--text-soft);
-}
-
 .inv-check-nav {
   display: flex;
   align-items: center;
@@ -3601,4 +3625,94 @@ a.about-back-link.ghost {
 
 .add-item-body {
   min-height: 160px;
+}
+
+.landing-replica-shell .topbar {
+  gap: 10px;
+}
+
+.landing-replica-intro {
+  border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border));
+  background: linear-gradient(140deg, color-mix(in srgb, var(--primary) 14%, var(--surface)), var(--surface));
+}
+
+.landing-replica-panel[hidden] {
+  display: none;
+}
+
+.landing-auth-required-action {
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--border));
+}
+
+.landing-budget-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.landing-budget-card {
+  border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border));
+  border-radius: 12px;
+  padding: 10px;
+  background: color-mix(in srgb, var(--surface) 92%, var(--primary) 8%);
+  display: grid;
+  gap: 4px;
+}
+
+.landing-budget-card strong {
+  font-size: 1.08rem;
+  letter-spacing: -0.01em;
+}
+
+.landing-budget-bars {
+  display: grid;
+  gap: 8px;
+}
+
+.landing-budget-bar {
+  width: 100%;
+  text-align: left;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  gap: 4px 10px;
+  border: 1px solid color-mix(in srgb, var(--primary) 26%, var(--border));
+  border-radius: 12px;
+  padding: 10px;
+  background: color-mix(in srgb, var(--surface) 94%, var(--primary) 6%);
+}
+
+.landing-budget-bar-label {
+  font-weight: 700;
+}
+
+.landing-budget-bar-value {
+  font-weight: 700;
+  color: var(--text-soft);
+}
+
+.landing-budget-bar-track {
+  grid-column: 1 / -1;
+  height: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-muted) 72%, var(--border));
+  overflow: hidden;
+}
+
+.landing-budget-bar-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--primary) 72%, #4cc7aa), color-mix(in srgb, var(--primary) 35%, #f0be68));
+}
+
+@media (max-width: 640px) {
+  .landing-replica-shell .topbar {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .landing-budget-grid {
+    grid-template-columns: 1fr;
+  }
 }

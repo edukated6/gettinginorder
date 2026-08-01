@@ -27,8 +27,8 @@ import {
   wireCollaborationEvents,
   wireOnboardingEvents,
   wireProfileEvents,
-} from "./js/auth-events.js";
-import { getRoute, setRoute } from "./js/router.js";
+} from "./js/auth-events.js?v=20260701a";
+import { getHashParams, getRoute, setRoute } from "./js/router.js";
 import {
   getState,
   setState,
@@ -37,9 +37,11 @@ import {
   getDefaultCategories,
   getCurrentInventoryId,
 } from "./js/state.js";
-import { wireWelcomeEvents, wireSharedEvents } from "./js/events.js";
+import { wireWelcomeEvents, wireSharedEvents } from "./js/events.js?v=20260701e";
+import { wirePublicLandingEvents } from "./js/events.js?v=20260701e";
 import {
   renderWelcome,
+  renderPublicLandingReplica,
   renderDashboard,
   renderInventory,
   renderShopping,
@@ -55,7 +57,7 @@ import {
   renderProfileSettings,
   renderMyInventories,
   renderCollaborationSettings,
-} from "./js/views.js?v=20260503c";
+} from "./js/views.js?v=20260701f";
 import {
   getUserInventories,
   getCollaborators,
@@ -97,6 +99,14 @@ const SUPPRESS_RESUME_SYNC_UNTIL_KEY = "__norderSuppressResumeSyncUntil";
 const DEFAULT_ITEM_TOMBSTONE_RETENTION_DAYS = 30;
 const MIN_ITEM_TOMBSTONE_RETENTION_DAYS = 1;
 const MAX_ITEM_TOMBSTONE_RETENTION_DAYS = 365;
+
+function getSafeNextTarget(rawNext) {
+  const raw = String(rawNext || "").trim();
+  if (!raw) return "";
+  if (!raw.startsWith("/") || raw.startsWith("//")) return "";
+  if (/^[\r\n\t]/.test(raw)) return "";
+  return raw;
+}
 
 function shouldSuppressResumeSync() {
   if (typeof window === "undefined") return false;
@@ -154,6 +164,9 @@ function persistCurrentUserPrefs(user) {
 }
 
 function checkFirebaseAvailable() {
+  if (typeof window !== "undefined" && window.__NORDER_DESKTOP_LOCAL__) {
+    return false;
+  }
   return typeof firebase !== "undefined" && firebase.auth && firebase.database;
 }
 
@@ -639,11 +652,10 @@ async function render() {
   const app = document.getElementById("app");
   const route = getRoute();
   const user = getCurrentUser();
-
   if (!firebaseAvailable) {
     if (route === "/") {
-      app.innerHTML = renderWelcome();
-      wireWelcomeEvents(render);
+      app.innerHTML = renderPublicLandingReplica();
+      wirePublicLandingEvents();
       return;
     }
 
@@ -667,6 +679,13 @@ async function render() {
 
     if (route === "/terms") {
       app.innerHTML = renderTermsPage();
+      wireSharedEvents(render);
+      return;
+    }
+
+    if (route === "/activity") {
+      app.innerHTML = renderActivityLog([]);
+      setSyncIndicator("local");
       wireSharedEvents(render);
       return;
     }
@@ -734,12 +753,25 @@ async function render() {
   }
 
   if (route === "/login") {
+    const loginParams = getHashParams();
+    const hasExplicitMode = Boolean(String(loginParams.get("mode") || "").trim());
+    const hasIntent = Boolean(String(loginParams.get("intent") || "").trim());
+    const nextTarget = getSafeNextTarget(loginParams.get("next"));
+    if (!user && !hasExplicitMode && !hasIntent && !nextTarget) {
+      setRoute("/");
+      return;
+    }
+
     enforceSignInThemeDefault();
     if (user) {
       syncUserPrefsFromAuth(user);
       await ensureUserPrefsSync(user.uid);
     }
     if (user && !isAuthSessionLocked()) {
+      if (!isOnboardingRequired(user) && nextTarget) {
+        window.location.href = nextTarget;
+        return;
+      }
       setRoute(isOnboardingRequired(user) ? "/onboarding" : "/inventories");
       return;
     }
@@ -755,18 +787,24 @@ async function render() {
     return;
   }
 
+  if (route === "/") {
+    app.innerHTML = renderPublicLandingReplica();
+    wirePublicLandingEvents();
+    return;
+  }
+
   if (!user) {
     stopInventorySync();
     stopUserPrefsSync();
-    if (route !== "/login") {
-      setRoute("/login");
+    if (route !== "/") {
+      setRoute("/");
     }
     return;
   }
 
   if (isAuthSessionLocked() && route !== "/login" && route !== "/about-welcome" && route !== "/terms-welcome") {
     stopInventorySync();
-    setRoute("/login");
+    setRoute("/");
     return;
   }
 
@@ -920,7 +958,7 @@ async function initApp() {
       console.log("Firebase SDK not loaded. Using local-only mode.");
     }
 
-    window.addEventListener("hashchange", render);
+    window.addEventListener("norder:routechange", render);
     window.addEventListener("norder:state-saved", () => {
       persistCurrentUserPrefs(getCurrentUser());
       pushLocalInventoryToCloud();
@@ -965,7 +1003,7 @@ async function initApp() {
           <h1>nORDER</h1>
           <p class="muted">Local Mode</p>
           <p class="muted">Firebase is not configured, but you can use the app locally.</p>
-          <button onclick="window.location.hash = '#/'" class="primary">Start</button>
+          <button onclick="window.location.href = '/'" class="primary">Start</button>
         </section>
       </div>
     `;
