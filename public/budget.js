@@ -24,6 +24,12 @@
     periodMonth: "",
     updatedAt: 0,
   };
+  var duePreview = {
+    node: null,
+    activeCell: null,
+    dismissWired: false,
+    pinned: false,
+  };
 
   function getScopedStorageKey(user) {
     var uidValue = user && user.uid ? String(user.uid).trim() : "";
@@ -461,9 +467,129 @@
     };
   }
 
+  function ensureDuePreviewNode() {
+    if (duePreview.node && document.body.contains(duePreview.node)) {
+      return duePreview.node;
+    }
+
+    var node = document.createElement("div");
+    node.className = "due-preview";
+    node.hidden = true;
+    document.body.appendChild(node);
+    duePreview.node = node;
+
+    if (!duePreview.dismissWired) {
+      document.addEventListener("pointerdown", function (event) {
+        if (!duePreview.activeCell || !duePreview.node || duePreview.node.hidden) return;
+        if (duePreview.activeCell.contains(event.target) || duePreview.node.contains(event.target)) return;
+        hideDuePreview();
+      });
+      document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape") {
+          hideDuePreview();
+        }
+      });
+      window.addEventListener("resize", hideDuePreview);
+      window.addEventListener("scroll", hideDuePreview, true);
+      duePreview.dismissWired = true;
+    }
+
+    return node;
+  }
+
+  function hideDuePreview() {
+    if (duePreview.node) {
+      duePreview.node.hidden = true;
+      duePreview.node.classList.remove("is-visible");
+    }
+    if (duePreview.activeCell) {
+      duePreview.activeCell.setAttribute("aria-expanded", "false");
+      duePreview.activeCell.setAttribute("aria-pressed", "false");
+      duePreview.activeCell.classList.remove("is-selected");
+    }
+    duePreview.activeCell = null;
+    duePreview.pinned = false;
+  }
+
+  function positionDuePreview(cell, node) {
+    var cellRect = cell.getBoundingClientRect();
+    node.style.left = "0px";
+    node.style.top = "0px";
+    node.hidden = false;
+    node.classList.add("is-visible");
+
+    var nodeRect = node.getBoundingClientRect();
+    var margin = 10;
+    var left = cellRect.left + window.scrollX + cellRect.width / 2 - nodeRect.width / 2;
+    var maxLeft = window.scrollX + window.innerWidth - nodeRect.width - margin;
+    left = Math.max(window.scrollX + margin, Math.min(left, maxLeft));
+
+    var top = cellRect.top + window.scrollY - nodeRect.height - 10;
+    if (top < window.scrollY + margin) {
+      top = cellRect.bottom + window.scrollY + 10;
+    }
+
+    node.style.left = left + "px";
+    node.style.top = top + "px";
+  }
+
+  function showDuePreview(cell, previewHtml, pinned) {
+    if (duePreview.activeCell && duePreview.activeCell !== cell) {
+      duePreview.activeCell.setAttribute("aria-expanded", "false");
+      duePreview.activeCell.setAttribute("aria-pressed", "false");
+      duePreview.activeCell.classList.remove("is-selected");
+    }
+    var node = ensureDuePreviewNode();
+    node.innerHTML = previewHtml;
+    positionDuePreview(cell, node);
+    duePreview.activeCell = cell;
+    duePreview.pinned = Boolean(pinned);
+    cell.setAttribute("aria-expanded", "true");
+    cell.setAttribute("aria-pressed", duePreview.pinned ? "true" : "false");
+    cell.classList.toggle("is-selected", duePreview.pinned);
+  }
+
+  function wireDueCalendarPreviews(mount) {
+    mount.querySelectorAll(".due-cell[data-preview]").forEach(function (cell) {
+      var previewHtml = cell.getAttribute("data-preview") || "";
+
+      cell.addEventListener("mouseenter", function () {
+        if (duePreview.pinned && duePreview.activeCell && duePreview.activeCell !== cell) return;
+        showDuePreview(cell, previewHtml, false);
+      });
+
+      cell.addEventListener("mouseleave", function () {
+        if (!duePreview.pinned) {
+          hideDuePreview();
+        }
+      });
+
+      cell.addEventListener("focus", function () {
+        showDuePreview(cell, previewHtml, false);
+      });
+
+      cell.addEventListener("blur", function () {
+        if (!duePreview.pinned) {
+          hideDuePreview();
+        }
+      });
+
+      cell.addEventListener("click", function (event) {
+        event.preventDefault();
+        var sameCell = duePreview.activeCell === cell;
+        if (sameCell && duePreview.pinned) {
+          hideDuePreview();
+          return;
+        }
+        showDuePreview(cell, previewHtml, true);
+      });
+    });
+  }
+
   function renderDueCalendar() {
     var mount = document.getElementById("due-calendar");
     if (!mount) return;
+    hideDuePreview();
 
     var now = new Date();
     var year = now.getFullYear();
@@ -473,18 +599,24 @@
     var dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     var byDay = {};
 
-    state.bills
-      .filter(function (bill) {
-        return bill.active !== false;
-      })
-      .forEach(function (bill) {
+    getSortedBills().forEach(function (bill) {
       var day = Math.min(daysInMonth, Math.max(1, Math.round(safeNum(bill.dueDay) || 1)));
       if (!byDay[day]) {
-        byDay[day] = { count: 0, total: 0 };
+        byDay[day] = { count: 0, total: 0, paidCount: 0, unpaidCount: 0, bills: [] };
       }
       byDay[day].count += 1;
       byDay[day].total += Math.max(0, safeNum(bill.amount));
+      if (bill.paid) {
+        byDay[day].paidCount += 1;
+      } else {
+        byDay[day].unpaidCount += 1;
+      }
+      byDay[day].bills.push({
+        name: String(bill.name || "Untitled"),
+        amount: Math.max(0, safeNum(bill.amount)),
+        paid: Boolean(bill.paid),
       });
+    });
 
     var weekdayHtml = dayNames
       .map(function (name) {
@@ -498,11 +630,46 @@
     }
 
     for (var dayNum = 1; dayNum <= daysInMonth; dayNum += 1) {
-      var entry = byDay[dayNum] || { count: 0, total: 0 };
+      var entry = byDay[dayNum] || { count: 0, total: 0, paidCount: 0, unpaidCount: 0, bills: [] };
       var totalText = entry.count ? formatMoney(entry.total) : "No due bills";
       var countText = entry.count ? entry.count + (entry.count === 1 ? " bill" : " bills") : "";
+      var previewLines = entry.count
+        ? entry.bills.map(function (bill) {
+            return bill.name + " - " + formatMoney(bill.amount) + (bill.paid ? " (Paid)" : " (Unpaid)");
+          })
+        : ["No due bills"];
+      var monthLabel = now.toLocaleString("en-US", { month: "long" });
+      var dateLabel = monthLabel + " " + dayNum;
+      var previewBody = previewLines
+        .map(function (line) {
+          return '<li class="due-preview-item">' + escapeHtml(line) + "</li>";
+        })
+        .join("");
+      var previewHtml =
+        '<div class="due-preview-title">' +
+        escapeHtml(dateLabel) +
+        "</div>" +
+        '<ul class="due-preview-list">' +
+        previewBody +
+        "</ul>" +
+        '<div class="due-preview-footer">' +
+        '<span class="due-preview-total">Day total: ' +
+        escapeHtml(totalText) +
+        "</span>" +
+        '<span class="due-preview-split">Paid: ' +
+        escapeHtml(String(entry.paidCount)) +
+        " | Unpaid: " +
+        escapeHtml(String(entry.unpaidCount)) +
+        "</span>" +
+        "</div>";
       cells.push(
-        '<div class="due-cell">' +
+        '<div class="due-cell" data-day="' +
+          dayNum +
+          '" data-preview="' +
+          escapeAttr(previewHtml) +
+          '" tabindex="0" role="button" aria-expanded="false" aria-pressed="false" aria-label="' +
+          escapeAttr(dateLabel + ": " + (entry.count ? previewLines.join(", ") : "No due bills")) +
+          '">' +
           '<div class="due-cell-day">' + dayNum + "</div>" +
           '<div class="due-cell-total">' + escapeHtml(totalText) + "</div>" +
           '<div class="due-cell-count">' + escapeHtml(countText) + "</div>" +
@@ -513,6 +680,8 @@
     mount.innerHTML =
       '<div class="due-calendar-weekdays">' + weekdayHtml + "</div>" +
       '<div class="due-calendar-grid">' + cells.join("") + "</div>";
+
+    wireDueCalendarPreviews(mount);
   }
 
   function setActivePage(page) {
@@ -578,6 +747,8 @@
       }
     }
 
+    renderDueCalendar();
+
     var activityList = document.getElementById("activity-list");
     if (!state.activity.length) {
       activityList.innerHTML = '<li class="activity-item">No activity yet. Add your first bill to get started.</li>';
@@ -600,8 +771,6 @@
         );
       })
       .join("");
-
-    renderDueCalendar();
   }
 
   function renderBillRows(bills) {
